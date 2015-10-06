@@ -30,6 +30,10 @@ import time
 from xbake.common.logthis import C
 from xbake.common.logthis import LL
 from xbake.common.logthis import logthis
+from xbake.common.logthis import loglevel
+
+from xbake.common import rcfile
+from xbake.xcode import ffmpeg
 
 class xsetup:
     """Contains version information and globals"""
@@ -126,4 +130,12 @@ def parse_cli():
 
 if __name__ == '__main__':
     show_banner()
+    loglevel(LL.DEBUG)
     xopt = parse_cli()
+
+    # import
+
+    # Get ffmpeg version
+    ffmpeg.locate()
+    ffver = ffmpeg.version()
+    logthis("FFmpeg Version:",suffix="%s (%s)" % (ffver['version'],ffver['date']),loglevel=LL.VERBOSE)

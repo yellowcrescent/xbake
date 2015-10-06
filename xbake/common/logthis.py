@@ -80,7 +80,12 @@ class LL:
                 9: 'debug2'
             }
 
+# set default loglevel
+g_loglevel = LL.INFO
+
 def logthis(logline,loglevel=LL.DEBUG,prefix=None,suffix=None,ccode=None):
+    global g_loglevel
+
     zline = ''
     if not ccode:
         if loglevel == LL.ERROR: ccode = C.RED
@@ -93,6 +98,7 @@ def logthis(logline,loglevel=LL.DEBUG,prefix=None,suffix=None,ccode=None):
 
     # get traceback info
     lframe = inspect.stack()[1][0]
+    lfunc = inspect.stack()[1][3]
     mod = inspect.getmodule(lframe)
     lline = inspect.getlineno(lframe)
     lfile = inspect.getsourcefile(lframe)
@@ -104,9 +110,20 @@ def logthis(logline,loglevel=LL.DEBUG,prefix=None,suffix=None,ccode=None):
     else:
         lmodname = str(__name__)
         xmessage = str(data)
+    if lmodname == "__main__":
+        lmodname = "yc_cpx"
+        lfunc = "(main)"
 
-    finline = '%s[%s:%s:%s] %s<%s>%s %s%s\n' % (C.WHT,lfile,lmodname,lline,C.RED,LL.lname[loglevel],C.WHT,zline,C.OFF)
+    finline = '%s[%s:%s%s%s:%s] %s<%s>%s %s%s\n' % (C.WHT,lmodname,C.YEL,lfunc,C.WHT,lline,C.RED,LL.lname[loglevel],C.WHT,zline,C.OFF)
 
     # write log message
     # TODO: add syslog (/dev/log) functionality
-    sys.stdout.write(finline)
+
+    if g_loglevel >= loglevel:
+        sys.stdout.write(finline)
+
+def loglevel(newlvl=None):
+    global g_loglevel
+    if newlvl:
+        g_loglevel = newlvl
+    return g_loglevel
