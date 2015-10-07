@@ -5,7 +5,6 @@
 # yc_xbake
 # YC XBake: Video file scanning, renaming, sub baking and transcoding utility
 #
-# @version  0.10
 # @author   J. Hipps <jacob@ycnrg.org>
 # @repo     https://bitbucket.org/yellowcrescent/yc_xbake
 #
@@ -169,6 +168,6 @@ if __name__ == '__main__':
     ffmpeg.locate()
     ffver = ffmpeg.version()
 
-    print(xsetup.config)
+    logthis("Configuration done. xsetup.config =",suffix=xsetup.config)
 
     logthis("FFmpeg Version:",suffix="%s (%s)" % (ffver['version'],ffver['date']),loglevel=LL.VERBOSE)
