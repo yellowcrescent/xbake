@@ -17,6 +17,7 @@
 #
 ###############################################################################
 
+import __main__
 import sys
 import os
 import re
@@ -42,6 +43,12 @@ def locate(prog='ffmpeg'):
     loclist = gstr.split(' ')
     ffpath = loclist[0]
     logthis("Located ffmpeg binary:",suffix=ffpath,loglevel=LL.VERBOSE)
+
+    # check if ffmpeg path auto-detection is set to auto (ffmpeg.path = False)
+    # if so, set the path in the ffmpeg option block
+    if __main__.xsetup.config['ffmpeg']['path'] == False:
+        __main__.xsetup.config['ffmpeg']['path'] = ffpath
+
     return ffpath
 
 def version():

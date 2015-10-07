@@ -38,8 +38,35 @@ from xbake.xcode import ffmpeg
 class xsetup:
     """Contains version information and globals"""
     ## Version info
-    version = "0.10"
-    vdate   = "06 Sep 2015"
+    version = "0.10.1"
+    vdate   = "07 Oct 2015"
+
+    config   =  None
+    lconfig  =  None
+    defaults =  {
+                    'mongo': {
+                        'host': "localhost",
+                        'port': 27017,
+                        'database': "ycplay"
+                    },
+                    'redis': {
+                        'host': "localhost",
+                        'port': 6379,
+                        'db': 0
+                    },
+                    'thetvdb': {
+                        'mirror': "http://thetvdb.com",
+                        'imgbase': "http://thetvdb.com/banners",
+                        'apikey': False
+                    },
+                    'myanimelist': {
+                        'user': False,
+                        'password': False
+                    },
+                    'ffmpeg': {
+                        'path': False
+                    }
+                }
 
 def show_banner():
     """
@@ -131,11 +158,17 @@ def parse_cli():
 if __name__ == '__main__':
     show_banner()
     loglevel(LL.DEBUG)
+
+    # parse CLI options
     xopt = parse_cli()
 
-    # import
+    # load config
+    rcfile.loadConfig()
 
     # Get ffmpeg version
     ffmpeg.locate()
     ffver = ffmpeg.version()
+
+    print(xsetup.config)
+
     logthis("FFmpeg Version:",suffix="%s (%s)" % (ffver['version'],ffver['date']),loglevel=LL.VERBOSE)

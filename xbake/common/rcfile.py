@@ -14,15 +14,13 @@
 #
 ###############################################################################
 
+import __main__
 import os
 import sys
-import __main__
-import traceback
-import inspect
-import logging
-import logging.handlers
+import re
 import signal
-from ConfigParser import SafeConfigParser
+import codecs
+import ConfigParser
 
 # Logging
 from xbake.common.logthis import C
@@ -31,6 +29,9 @@ from xbake.common.logthis import logthis
 
 # RCfile list
 rcfiles = [ './xbake.conf', '~/.xbake/xbake.conf', '~/.xbake', '/etc/xbake.conf' ]
+
+# Parser object
+rcpar = None
 
 def rcList(xtraConf=None):
     global rcfiles
@@ -55,13 +56,29 @@ def rcList(xtraConf=None):
 
 
 def parse(xtraConf=None):
+    """
+    Parse rcfile (xbake.conf)
+    Output: (rcfile, rcdata)
+    """
+    global rcpar
     # get rcfile list
     rcl = rcList(xtraConf)
-    logthis("Parsing any local, user, or sytem RC files...",loglevel=LL.VERBOSE)
+    logthis("Parsing any local, user, or system RC files...",loglevel=LL.VERBOSE)
 
     # use ConfigParser to parse the rcfiles
-    rcpar = SafeConfigParser()
-    rcpar.read(rcl)
+    # TODO: only first file is parsed for now, implement override system eventually
+    rcpar = ConfigParser.SafeConfigParser()
+    if len(rcl):
+        rcfile = os.path.realpath(rcl[0])
+        logthis("Parsing config file:",suffix=rcfile)
+        try:
+            # use ConfigParser.readfp() so that we can correctly parse UTF-8 stuffs
+            # ...damn you python 2 and your shitty unicode bodgery
+            with codecs.open(rcfile,'r',encoding='utf-8') as f:
+                rcpar.readfp(f)
+        except ConfigParser.ParsingError as e:
+            logthis("Error parsing config file: %s" % e,loglevel=LL.ERROR)
+            return False
 
     # build a dict
     rcdict = {}
@@ -73,4 +90,70 @@ def parse(xtraConf=None):
         for ii in isecs:
             logthis(">> %s" % ii[0],suffix=ii[1],loglevel=LL.DEBUG2)
             rcdict[ss][ii[0]] = ii[1]
-    return rcdict
+
+    # return loaded filename and rcdata
+    return (rcfile, rcdict)
+
+
+def merge(inrc):
+    """
+    Merge options from loaded rcfile with defaults; strip quotes and perform type-conversion.
+    Any defined value set in the config will override the default value.
+    """
+    outrc = {}
+    # set defaults first
+    for dsec in __main__.xsetup.defaults:
+        # create sub dict for this section, if not exist
+        if not outrc.has_key(dsec):
+            outrc[dsec] = {}
+        # loop through the keys
+        for dkey in __main__.xsetup.defaults[dsec]:
+            logthis("** Option:",prefix="defaults",suffix="%s => %s => '%s'" % (dsec,dkey,__main__.xsetup.defaults[dsec][dkey]),loglevel=LL.DEBUG2)
+            outrc[dsec][dkey] = __main__.xsetup.defaults[dsec][dkey]
+
+    # set options defined in rcfile, overriding defaults
+    for dsec in inrc:
+        # create sub dict for this section, if not exist
+        if not outrc.has_key(dsec):
+            outrc[dsec] = {}
+        # loop through the keys
+        for dkey in inrc[dsec]:
+            # Strip quotes and perform type-conversion for ints and floats
+            if type(outrc[dsec][dkey]) == int:
+                try:
+                    tkval = int(qstrip(inrc[dsec][dkey]))
+                except ValueError as e:
+                    logthis("Unable to convert value to integer. Check config option value. Value:",prefix="%s:%s" % (dsec,dkey),suffix=qstrip(inrc[dsec][dkey]),loglevel=LL.ERROR)
+                    continue
+            elif type(outrc[dsec][dkey]) == float:
+                try:
+                    tkval = float(qstrip(inrc[dsec][dkey]))
+                except ValueError as e:
+                    logthis("Unable to convert value to float. Check config option value. Value:",prefix="%s:%s" % (dsec,dkey),suffix=qstrip(inrc[dsec][dkey]),loglevel=LL.ERROR)
+                    continue
+            else:
+                tkval = qstrip(inrc[dsec][dkey])
+
+            logthis("** Option set:",prefix="rcfile",suffix="%s => %s => '%s'" % (dsec,dkey,tkval),loglevel=LL.DEBUG2)
+            outrc[dsec][dkey] = tkval
+
+    return outrc
+
+
+def qstrip(inval):
+    # Strip quotes from quote-delimited strings
+    rxm = re.match('^([\"\'])(.+)(\\1)$',inval)
+    if rxm:
+        return rxm.groups()[1]
+    else:
+        return inval
+
+
+def loadConfig(xtraConf=None):
+    """
+    Top-level class for loading configuration from xbake.conf
+    """
+    rcfile,rci = parse(xtraConf)
+    optrc = merge(rci)
+    __main__.xsetup.config = optrc
+    __main__.xsetup.lconfig = rcfile
