@@ -43,6 +43,9 @@ class xsetup:
     config   =  None
     lconfig  =  None
     defaults =  {
+                    'core': {
+                        'loglevel': LL.INFO
+                    },
                     'mongo': {
                         'host': "localhost",
                         'port': 27017,
@@ -52,6 +55,13 @@ class xsetup:
                         'host': "localhost",
                         'port': 6379,
                         'db': 0
+                    },
+                    'xcode': {
+                        'subtype': "ass",
+                        'abr': 128
+                    },
+                    'scan': {
+                        'scraper': "tvdb"
                     },
                     'thetvdb': {
                         'mirror': "http://thetvdb.com",
@@ -86,58 +96,59 @@ def parse_cli():
     oparser = optparse.OptionParser(usage="%prog <--xcode|--scan|--ssonly> [options] -i INFILE [-o OUTFILE]",version=xsetup.version+" ("+xsetup.vdate+")")
 
     # General options
-    oparser.add_option('-L','--loglevel', action="store", dest="loglevel", default=LL.INFO, help="Logging output verbosity")
-    oparser.add_option('-i','--infile', action="store", dest="infile", default=False, help="Input file or directory")
-    oparser.add_option('-o','--out', action="store", dest="outfile", default=False, help="Output file")
+    oparser.add_option('-v', '--verbose', action="count", dest="run.verbose", help="Increase logging verbosity (-v Verbose, -vv Debug, -vvv Debug2)")
+    oparser.add_option('-L','--loglevel', action="store", dest="core.loglevel", default=False,metavar="NUM", help="Logging output verbosity (4=error,5=warning,6=info,7=verbose,8=debug,9=debug2)")
+    oparser.add_option('-i','--infile', action="store", dest="run.infile", default=False,metavar="PATH", help="Input file or directory")
+    oparser.add_option('-o','--out', action="store", dest="run.outfile", default=False,metavar="FILE", help="Output file")
 
     # Mode selection options
     opg_mode = optparse.OptionGroup(oparser, "Mode Selection", "Choose operations mode for XBake (required). These options are mutually-exclusive.")
-    opg_mode.add_option('--xcode',action="store_true",dest="xcode",default=False,help="Transcode")
-    opg_mode.add_option('--scan',action="store_true",dest="xcode",default=False,help="Scan for & catalogue media")
-    opg_mode.add_option('--ssonly',action="store_true",dest="xcode",default=False,help="Capture screenshot only")
+    opg_mode.add_option('--xcode',action="store_const",dest="run.mode",const="xcode",default=False,help="Transcode")
+    opg_mode.add_option('--scan',action="store_const",dest="run.mode",const="scan",default=False,help="Scan for & catalogue media")
+    opg_mode.add_option('--ssonly',action="store_const",dest="run.mode",const="ssonly",default=False,help="Capture screenshot only")
 
     # Scanning options
     opg_scan = optparse.OptionGroup(oparser, "Scanning", "Options for media scanner")
-    opg_scan.add_option('-S','--single',action="store_true",dest="single",default=False,help="Single-file Mode")
-    opg_scan.add_option('-X','--nosend',action="store_true",dest="nosend",default=False,help="Disable sending data to remote server")
-    opg_scan.add_option('--scraper',action="store",dest="scraper",default="tvdb",help="Choose scraper to use [tvdb,mal,ann] (default=%default)")
-    opg_scan.add_option('--pretty',action="store_true",dest="pretty",default=False,help="Pretty-print JSON output")
-    opg_scan.add_option('-Z','--nochecksum',action="store_true",dest="nochecksum",default=False,help="Disable checksum calculation during file scanning")
-    opg_scan.add_option('--mforce',action="store_true",dest="mforce",default=False,help="Force rescan all files, even if no changes detected")
+    opg_scan.add_option('-S','--single',action="store_true",dest="run.single",default=False,help="Single-file Mode")
+    opg_scan.add_option('-X','--nosend',action="store_true",dest="scan.nosend",default=False,help="Disable sending data to remote server")
+    opg_scan.add_option('--scraper',action="store",dest="scan.scraper",default=False,metavar="ID",help="Choose scraper to use [tvdb,mal,ann] (default=%default)")
+    opg_scan.add_option('--pretty',action="store_true",dest="scan.pretty",default=False,help="Pretty-print JSON output")
+    opg_scan.add_option('-Z','--nochecksum',action="store_true",dest="scan.nochecksum",default=False,help="Disable checksum calculation during file scanning")
+    opg_scan.add_option('--mforce',action="store_true",dest="scan.mforce",default=False,help="Force rescan all files, even if no changes detected")
 
     # Transcoding options
     opg_xcode = optparse.OptionGroup(oparser, "Transcoding", "Options for transcoding video")
-    opg_xcode.add_option('--bake',action="store",dest="bake",default=False,metavar="SUBID",help="Bake subtitles (hardsub), specify sub track ID")
-    opg_xcode.add_option('--subtype',action="store",dest="subtype",default="ass",metavar="TYPE",help="Specify subtitle track type [ass,srt] (default=%default)")
-    opg_xcode.add_option('-x','--scale',action="store",dest="scale",default=False,metavar="RES",help="Scale video resolution (RES=width:height)")
-    opg_xcode.add_option('--anamorphic',action="store_true",dest="anamorphic",default=False,help="Perform anamorphic widescreen compensation")
-    opg_xcode.add_option('--aid',action="store",dest="aid",default=False,metavar="AID",help="Audio track ID (default is lowest-numbered track)")
-    opg_xcode.add_option('--abr',action="store",dest="abr",default=128,metavar="KBPS",help="Audio bitrate in kbps (default=%default)")
-    opg_xcode.add_option('--acopy',action="store_true",dest="acopy",default=False,help="Audio track, direct stream copy")
-    opg_xcode.add_option('--downmix',action="store_true",dest="downmix",default=False,help="Downmix audio from 5.1 to Stereo")
-    opg_xcode.add_option('--flv',action="store_true",dest="flv",default=False,help="Output in FLV container")
-    opg_xcode.add_option('--daignore',action="store_true",dest="daignore",default=False,help="Ignore errors when dumping attachments")
+    opg_xcode.add_option('--bake',action="store",dest="run.bake",default=False,metavar="SUBID",help="Bake subtitles (hardsub), specify sub track ID")
+    opg_xcode.add_option('--subtype',action="store",dest="xcode.subtype",default=False,metavar="TYPE",help="Specify subtitle track type [ass,srt] (default=%default)")
+    opg_xcode.add_option('-x','--scale',action="store",dest="xcode.scale",default=False,metavar="RES",help="Scale video resolution (RES=width:height)")
+    opg_xcode.add_option('--anamorphic',action="store_true",dest="xcode.anamorphic",default=False,help="Perform anamorphic widescreen compensation")
+    opg_xcode.add_option('--aid',action="store",dest="xcode.aid",default=False,metavar="AID",help="Audio track ID (default is lowest-numbered track)")
+    opg_xcode.add_option('--abr',action="store",dest="xcode.abr",default=False,metavar="KBPS",help="Audio bitrate in kbps (default=%default)")
+    opg_xcode.add_option('--acopy',action="store_true",dest="xcode.acopy",default=False,help="Audio track, direct stream copy")
+    opg_xcode.add_option('--downmix',action="store_true",dest="xcode.downmix",default=False,help="Downmix audio from 5.1 to Stereo")
+    opg_xcode.add_option('--flv',action="store_true",dest="xcode.flv",default=False,help="Output in FLV container")
+    opg_xcode.add_option('--daignore',action="store_true",dest="xcode.daignore",default=False,help="Ignore errors when dumping attachments")
 
     # Framegrab options
     opg_vscap = optparse.OptionGroup(oparser, "Framegrab", "Options for screenshot capture")
-    opg_vscap.add_option('--vscap',action="store",dest="vscap",default=False,metavar="OFFSET",help="Capture frame at specified OFFSET in seconds (integer)")
+    opg_vscap.add_option('--vscap',action="store",dest="run.vscap",default=False,metavar="OFFSET",help="Capture frame at specified OFFSET in seconds (integer)")
 
     # Versioning options
     opg_version = optparse.OptionGroup(oparser, "ID & Version Info", "Options for file ID and encode versioning")
-    opg_version.add_option('-q','--id',action="store",dest="id",default=False,metavar="ID",help="Specify file ID; metadata is pulled from database")
-    opg_version.add_option('-A','--autoid',action="store_true",dest="autoid",default=False,help="Calculate ID from MD5 checksum (use for existing entries)")
-    opg_version.add_option('-H','--location',action="store",dest="location",default=False,metavar="HOSTKEY",help="Specify source location key (hostname with underscores)")
-    opg_version.add_option('--vername',action="store",dest="vername",default=False,metavar="NAME",help="Specify version name")
+    opg_version.add_option('-q','--id',action="store",dest="run.id",default=False,metavar="ID",help="Specify file ID; metadata is pulled from database")
+    opg_version.add_option('-A','--autoid',action="store_true",dest="vid.autoid",default=False,help="Calculate ID from MD5 checksum (use for existing entries)")
+    opg_version.add_option('-H','--location',action="store",dest="vid.location",default=False,metavar="HOSTKEY",help="Specify source location key (hostname with underscores)")
+    opg_version.add_option('--vername',action="store",dest="vid.vername",default=False,metavar="NAME",help="Specify version name")
 
     # Metadata options
     opg_meta = optparse.OptionGroup(oparser, "Metadata", "Options for specifying additional metadata which will be included in the database entry for this video")
-    opg_meta.add_option('--title',action="store",dest="title",default=False,metavar="VAL",help="Metadata: Episode/Video Title")
-    opg_meta.add_option('--series',action="store",dest="series",default=False,metavar="VAL",help="Metadata: Series Title")
-    opg_meta.add_option('--episode',action="store",dest="episode",default=False,metavar="NUM",help="Metadata: Episode Number")
-    opg_meta.add_option('--season',action="store",dest="season",default=False,metavar="NUM",help="Metadata: Season Number")
-    opg_meta.add_option('--special',action="store",dest="special",default=False,metavar="VAL",help="Metadata: Special Episode Title")
-    opg_meta.add_option('--fansub',action="store",dest="fansub",default=False,metavar="GROUP",help="Metadata: Fansub Group Name")
-    opg_meta.add_option('--dub',action="store",dest="dub",default=False,metavar="LANG",help="Metadata: Dub Language")
+    opg_meta.add_option('--title',action="store",dest="run.title",default=False,metavar="VAL",help="Metadata: Episode/Video Title")
+    opg_meta.add_option('--series',action="store",dest="run.series",default=False,metavar="VAL",help="Metadata: Series Title")
+    opg_meta.add_option('--episode',action="store",dest="run.episode",default=False,metavar="NUM",help="Metadata: Episode Number")
+    opg_meta.add_option('--season',action="store",dest="run.season",default=False,metavar="NUM",help="Metadata: Season Number")
+    opg_meta.add_option('--special',action="store",dest="run.special",default=False,metavar="VAL",help="Metadata: Special Episode Title")
+    opg_meta.add_option('--fansub',action="store",dest="run.fansub",default=False,metavar="GROUP",help="Metadata: Fansub Group Name")
+    opg_meta.add_option('--dub',action="store",dest="run.dub",default=False,metavar="LANG",help="Metadata: Dub Language")
 
     # add groups to parser
     oparser.add_option_group(opg_mode)
@@ -148,7 +159,15 @@ def parse_cli():
     oparser.add_option_group(opg_meta)
 
     options, args = oparser.parse_args(sys.argv[1:])
-    return options
+    vout = vars(options)
+
+    if vout['run.verbose']:
+        vout['run.verbose'] += 6
+        vout['core.loglevel'] = vout['run.verbose']
+    if vout['run.verbose'] or vout['core.loglevel']:
+        loglevel(int(vout['core.loglevel']))
+
+    return vout
 
 ##############################################################################
 ## Entry point
@@ -156,18 +175,17 @@ def parse_cli():
 
 if __name__ == '__main__':
     show_banner()
-    loglevel(LL.DEBUG)
+    loglevel(xsetup.defaults['core']['loglevel'])
 
-    # parse CLI options
+    # parse CLI options and load running config
     xopt = parse_cli()
-
-    # load config
-    rcfile.loadConfig()
+    rcfile.loadConfig(cliopts=xopt)
+    loglevel(xsetup.config['core']['loglevel'])
 
     # Get ffmpeg version
     ffmpeg.locate()
     ffver = ffmpeg.version()
-
-    logthis("Configuration done. xsetup.config =",suffix=xsetup.config)
-
     logthis("FFmpeg Version:",suffix="%s (%s)" % (ffver['version'],ffver['date']),loglevel=LL.VERBOSE)
+
+    # Ready
+    logthis("Configuration done. xsetup.config =",suffix=xsetup.config,loglevel=LL.DEBUG)

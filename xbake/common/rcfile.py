@@ -50,7 +50,7 @@ def rcList(xtraConf=None):
         logthis("Checking for rcfile candidate",suffix=ttf,loglevel=LL.DEBUG2)
         if os.path.exists(ttf):
             rcc.append(ttf)
-            logthis("Got rcfile candidate",suffix=ttf,loglevel=LL.DEBUG)
+            logthis("Got rcfile candidate",suffix=ttf,loglevel=LL.DEBUG2)
 
     return rcc
 
@@ -63,14 +63,14 @@ def parse(xtraConf=None):
     global rcpar
     # get rcfile list
     rcl = rcList(xtraConf)
-    logthis("Parsing any local, user, or system RC files...",loglevel=LL.VERBOSE)
+    logthis("Parsing any local, user, or system RC files...",loglevel=LL.DEBUG)
 
     # use ConfigParser to parse the rcfiles
     # TODO: only first file is parsed for now, implement override system eventually
     rcpar = ConfigParser.SafeConfigParser()
     if len(rcl):
         rcfile = os.path.realpath(rcl[0])
-        logthis("Parsing config file:",suffix=rcfile)
+        logthis("Parsing config file:",suffix=rcfile,loglevel=LL.VERBOSE)
         try:
             # use ConfigParser.readfp() so that we can correctly parse UTF-8 stuffs
             # ...damn you python 2 and your shitty unicode bodgery
@@ -95,7 +95,7 @@ def parse(xtraConf=None):
     return (rcfile, rcdict)
 
 
-def merge(inrc):
+def merge(inrc,cops):
     """
     Merge options from loaded rcfile with defaults; strip quotes and perform type-conversion.
     Any defined value set in the config will override the default value.
@@ -118,24 +118,47 @@ def merge(inrc):
             outrc[dsec] = {}
         # loop through the keys
         for dkey in inrc[dsec]:
+            # check if key exists in defaults
+            try:
+                type(outrc[dsec][dkey])
+                keyok = True
+            except KeyError:
+                keyok = False
+
             # Strip quotes and perform type-conversion for ints and floats
-            if type(outrc[dsec][dkey]) == int:
-                try:
-                    tkval = int(qstrip(inrc[dsec][dkey]))
-                except ValueError as e:
-                    logthis("Unable to convert value to integer. Check config option value. Value:",prefix="%s:%s" % (dsec,dkey),suffix=qstrip(inrc[dsec][dkey]),loglevel=LL.ERROR)
-                    continue
-            elif type(outrc[dsec][dkey]) == float:
-                try:
-                    tkval = float(qstrip(inrc[dsec][dkey]))
-                except ValueError as e:
-                    logthis("Unable to convert value to float. Check config option value. Value:",prefix="%s:%s" % (dsec,dkey),suffix=qstrip(inrc[dsec][dkey]),loglevel=LL.ERROR)
-                    continue
+            # only perform conversion if key exists in defaults
+            if keyok:
+                if type(outrc[dsec][dkey]) == int:
+                    try:
+                        tkval = int(qstrip(inrc[dsec][dkey]))
+                    except ValueError as e:
+                        logthis("Unable to convert value to integer. Check config option value. Value:",prefix="%s:%s" % (dsec,dkey),suffix=qstrip(inrc[dsec][dkey]),loglevel=LL.ERROR)
+                        continue
+                elif type(outrc[dsec][dkey]) == float:
+                    try:
+                        tkval = float(qstrip(inrc[dsec][dkey]))
+                    except ValueError as e:
+                        logthis("Unable to convert value to float. Check config option value. Value:",prefix="%s:%s" % (dsec,dkey),suffix=qstrip(inrc[dsec][dkey]),loglevel=LL.ERROR)
+                        continue
+                else:
+                    tkval = qstrip(inrc[dsec][dkey])
             else:
                 tkval = qstrip(inrc[dsec][dkey])
 
             logthis("** Option set:",prefix="rcfile",suffix="%s => %s => '%s'" % (dsec,dkey,tkval),loglevel=LL.DEBUG2)
             outrc[dsec][dkey] = tkval
+
+    # add in cli options
+    for dsec in cops:
+        # create sub dict for this section, if not exist
+        if not outrc.has_key(dsec):
+            outrc[dsec] = {}
+        # loop through the keys
+        for dkey in cops[dsec]:
+            # only if the value has actually been set (eg. non-false)
+            if cops[dsec][dkey]:
+                logthis("** Option:",prefix="cliopts",suffix="%s => %s => '%s'" % (dsec,dkey,cops[dsec][dkey]),loglevel=LL.DEBUG2)
+                outrc[dsec][dkey] = cops[dsec][dkey]
 
     return outrc
 
@@ -148,12 +171,23 @@ def qstrip(inval):
     else:
         return inval
 
+def optexpand(iop):
+    # expand CLI options like "xcode.scale" from 1D to 2D array/dict (like [xcode][scale])
+    outrc = {}
+    for i in iop:
+        dsec,dkey = i.split(".")
+        if not outrc.has_key(dsec):
+            outrc[dsec] = {}
+        outrc[dsec][dkey] = iop[i]
+    logthis("Expanded cli optdex:",suffix=outrc,loglevel=LL.DEBUG2)
+    return outrc
 
-def loadConfig(xtraConf=None):
+def loadConfig(xtraConf=None,cliopts=None):
     """
     Top-level class for loading configuration from xbake.conf
     """
     rcfile,rci = parse(xtraConf)
-    optrc = merge(rci)
+    cxopt = optexpand(cliopts)
+    optrc = merge(rci,cxopt)
     __main__.xsetup.config = optrc
     __main__.xsetup.lconfig = rcfile
