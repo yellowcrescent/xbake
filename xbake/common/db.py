@@ -23,10 +23,13 @@ import time
 import pymongo
 import redis
 
-# Logging
+# Logging & Error handling
 from xbake.common.logthis import C
 from xbake.common.logthis import LL
 from xbake.common.logthis import logthis
+from xbake.common.logthis import ER
+from xbake.common.logthis import failwith
+
 
 class mongo:
     """Hotamod class for handling Mongo stuffs"""
@@ -50,8 +53,6 @@ class mongo:
         if not self.silence: logthis("Connected to Mongo OK",loglevel=LL.INFO,ccode=C.GRN)
 
     def find(self, collection, query):
-        print "xcur=", self.xcur, "xcon=", self.xcon
-        print "collection=%s / query=%s" % (collection, query)
         xresult = {}
         xri = 0
         for tresult in self.xcur[collection].find(query):
@@ -90,7 +91,7 @@ class mongo:
         """Disconnect from MongoDB"""
         if self.xcon:
             self.xcon.close()
-            if not self.silence: logthis("Disconnected from Mongo")
+            #if not self.silence: logthis("Disconnected from Mongo")
 
 class redis:
     """Hotamod class for Redis stuffs"""
@@ -164,8 +165,6 @@ class redis:
         return self.rcon.dbsize()
 
     def __del__(self):
-        if not self.silence: logthis("Disconnected from Redis")
+        pass
+        #if not self.silence: logthis("Disconnected from Redis")
 
-
-def initMongo():
-	pass

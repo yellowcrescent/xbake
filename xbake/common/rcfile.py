@@ -68,6 +68,7 @@ def parse(xtraConf=None):
     # use ConfigParser to parse the rcfiles
     # TODO: only first file is parsed for now, implement override system eventually
     rcpar = ConfigParser.SafeConfigParser()
+    rcfile = None
     if len(rcl):
         rcfile = os.path.realpath(rcl[0])
         logthis("Parsing config file:",suffix=rcfile,loglevel=LL.VERBOSE)

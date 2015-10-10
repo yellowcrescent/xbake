@@ -25,26 +25,42 @@ import optparse
 import operator
 import time
 
-# Logging
+# Logging & Error handling
 from xbake.common.logthis import C
 from xbake.common.logthis import LL
 from xbake.common.logthis import logthis
+from xbake.common.logthis import ER
+from xbake.common.logthis import failwith
 from xbake.common.logthis import loglevel
+from xbake.common.logthis import exceptionHandler
 
 from xbake.common import rcfile
 from xbake.xcode import ffmpeg
+from xbake.xcode import xcode
 
 class xsetup:
     """Contains version information and globals"""
     ## Version info
-    version = "0.10.1"
-    vdate   = "07 Oct 2015"
+    version = "0.10.2"
+    vdate   = "10 Oct 2015"
 
     config   =  None
     lconfig  =  None
     defaults =  {
+                    'run': {
+                        'mode': None,
+                        'infile': None,
+                        'outfile': None,
+                        'id': None,
+                        'bake': None
+                    },
                     'core': {
                         'loglevel': LL.INFO
+                    },
+                    'vid': {
+                        'autoid': 1,
+                        'location': None,
+                        'vername': None
                     },
                     'mongo': {
                         'host': "localhost",
@@ -58,7 +74,8 @@ class xsetup:
                     },
                     'xcode': {
                         'subtype': "ass",
-                        'abr': 128
+                        'abr': 128,
+                        'srt_style': "FontName=MyriadPro-Semibold,Outline=1,Shadow=1,FontSize=24"
                     },
                     'scan': {
                         'scraper': "tvdb"
@@ -189,3 +206,10 @@ if __name__ == '__main__':
 
     # Ready
     logthis("Configuration done. xsetup.config =",suffix=xsetup.config,loglevel=LL.DEBUG)
+
+    # Set quiet exception handler for non-verbose operation
+    if xsetup.config['core']['loglevel'] < LL.VERBOSE:
+        sys.excepthook = exceptionHandler
+
+    if xsetup.config['run']['mode'] == "xcode":
+        xcode.transcode(xsetup.config['run']['infile'])

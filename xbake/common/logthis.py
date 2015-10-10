@@ -58,6 +58,27 @@ class C:
         self.HOME = ''
         self.XCLEAR = ''
 
+class ER:
+    OPT_MISSING = 1
+    OPT_BAD     = 2
+    CONF_BAD    = 3
+    PROCFAIL    = 4
+    NOTFOUND    = 5
+    lname = {
+                0: 'none',
+                1: 'opt_missing',
+                2: 'opt_bad',
+                3: 'conf_bad',
+                4: 'procfail',
+                5: 'notfound'
+            }
+
+class xbError(Exception):
+    def __init__(self,etype):
+        self.etype = etype
+    def __str__(self):
+        return ER.lname[self.etype]
+
 class LL:
     SILENT   = 0
     CRITICAL = 2
@@ -127,3 +148,11 @@ def loglevel(newlvl=None):
     if newlvl:
         g_loglevel = newlvl
     return g_loglevel
+
+def failwith(etype,errmsg):
+    logthis(errmsg,loglevel=LL.ERROR)
+
+    raise xbError(etype)
+
+def exceptionHandler(exception_type, exception, traceback):
+    print "%s: %s" % (exception_type.__name__, exception)
