@@ -72,6 +72,7 @@ class vinfo:
     id = None
     location = None
     mxmode = None
+    outfile = None
     class sub:
         track = None
         type = None
@@ -79,12 +80,23 @@ class vinfo:
     class aud:
         track = None
         type = None
+        channels = None
     class infile:
         file = None
         path = None
         base = None
         ext  = None
         full = None
+
+class ffo:
+    """
+    ffmpeg options
+    """
+    scaler = []
+    subs = []
+    audio = []
+    video = []
+    filters = []
 
 # Mongo object
 monjer = None
@@ -132,7 +144,9 @@ def transcode(infile,outfile=None,vername=None,id=None,**kwargs):
     logthis("Getting Matroska data",loglevel=LL.DEBUG)
     mkv = getMatroska(vinfo.infile.full)
 
-    # Set up encoding options
+    ## Set up encoding options ##
+
+    ## Subtitles
     if trueifset(conf['run']['bake'],typematch=True):
         # Set up subtitle baking options (hardsub)
         stracks = mkv['subtitle_tracks']
@@ -156,7 +170,7 @@ def transcode(infile,outfile=None,vername=None,id=None,**kwargs):
 
         # Loop through the tracks to find the matching track or default track
         for st in stracks:
-            logthis("** Subs: Track %s (%s) - '%s' [%s] %s" % (st['number'] - 1,st['codec_id'],st['name'],st['language'],strifset(st['default'],"***")),loglevel=LL.VERBOSE)
+            logthis("** Subs: Track %d (%s) - '%s' [%s] %s" % (st['number'] - 1,st['codec_id'],st['name'],st['language'],strifset(st['default'],"***")),loglevel=LL.VERBOSE)
             if st['default']: deftrack = st
             if subset == (st['number'] - 1): vinfo.sub.tdata = st
         # if no track found, use default
@@ -170,15 +184,115 @@ def transcode(infile,outfile=None,vername=None,id=None,**kwargs):
         vinfo.sub.track = vinfo.sub.tdata['number'] - 1
         vinfo.sub.type  = vinfo.sub.tdata['codec_id']
 
+        # Set ffmpeg options for subs
         # For ASS subs, dump font attachments
         if vinfo.sub.type == STYPE.ASS:
             logthis("Dumping font attachments for subtitles",loglevel=LL.VERBOSE)
-            try:
-                subprocess.check_output(['ffmpeg','-y','-dump_attachment:t','','-i',vinfo.infile.full])
-            except subprocess.CalledProcessError as e:
-                logthis("ffmpeg got mad, but we should be OK. dump_attachment always throws an error, even when it works.",loglevel=LL.WARNING)
+            fontlist = ffmpeg.dumpFonts(vinfo.infile.full)
+            subfile = "subtrack.ass"
+            ffo.subs = [ 'ass=%s' % subfile ]
+        elif vinfo.sub.type == STYPE.SRT:
+            subfile = "subtrack.srt"
+            ffo.subs = [ "subtitles=%s:force_style='%s'" % (subfile, conf['xcode']['srt_style']) ]
+        else:
+            logthis("Unsupported subtitle type:",suffix=vinfo.sub.type,loglevel=LL.ERROR)
+            failwith(ER.UNSUPPORTED, "Sub type not supported. Unable to continue. Aborting.")
 
+        # Extract subtitle track
+        ffmpeg.dumpSub(vinfo.infile.full, vinfo.sub.track, subfile)
 
+    ## Audio
+    atracks = mkv['audio_tracks']
+
+    if conf['xcode']['aid']:
+        subset = conf['xcode']['aid']
+    else:
+        subset = True
+
+    for st in atracks:
+        logthis("** Audio: Track %d (%s) - '%s' %dch [%s] %s" % (st['number'] - 1,st['codec_id'],st['name'],st['channels'],st['language'],strifset(st['default'],"***")),loglevel=LL.VERBOSE)
+        if st['default']: deftrack = st
+        if subset == (st['number'] - 1): vinfo.aud.tdata = st
+    # if no track found, use default
+    if not vinfo.aud.tdata:
+        # throw a warning if our chosen track doesn't exist
+        if subset is not True and subset != (deftrack['number'] - 1):
+            logthis("Using default audio track. Track not found with ID",suffix=subset,loglevel=LL.WARNING)
+        vinfo.aud.tdata = deftrack
+
+    # Get important bits of track data
+    vinfo.aud.track = vinfo.aud.tdata['number'] - 1
+    vinfo.aud.type  = vinfo.aud.tdata['codec_id']
+    vinfo.aud.channels = vinfo.aud.tdata['channels']
+
+    # Determine if we need to transcode the audio
+    if conf['xcode']['acopy'].lower() == 'auto':
+        # stream copy apparently only works for the default track
+        if vinfo.aud.type == 'A_AAC' and vinfo.aud.tdata['default']:
+            vinfo.aud.copy = True
+        else:
+            vinfo.aud.copy = False
+    elif conf['xcode']['acopy'] == 1 or conf['xcode']['acopy'] is True:
+        vinfo.aud.copy = True
+    else:
+        vinfo.aud.copy = False
+
+    # Determine if we need to downmix/upmix
+    if conf['xcode']['downmix'].lower() == 'auto':
+        if vinfo.aud.channels != 2:
+            vinfo.aud.downmix = True
+            # If stream copy is also set to auto, make sure it's
+            # disabled if we need to downmix
+            if conf['xcode']['acopy'].lower() == 'auto':
+                vinfo.aud.copy = False
+        else:
+            vinfo.aud.downmix = False
+    elif conf['xcode']['downmix'] == 1 or conf['xcode']['downmix'] is True:
+        vinfo.aud.downmix = True
+    else:
+        vinfo.aud.downmix = False
+
+    # Set audio encoding options
+    if vinfo.aud.copy:
+        # stream copy
+        ffo.audio += [ '-c:a', 'copy' ]
+    else:
+        # set codec
+        ffo.audio += [ '-c:a:%d' % vinfo.aud.track, 'libfaac' ]
+        # set audio bitrate
+        ffo.audio += [ '-b:a:%d' % vinfo.aud.track, '%dk' % conf['xcode']['abr'] ]
+        # set downmix (or possibly upmix if mono), if enabled
+        if vinfo.aud.downmix: ffo.audio += [ '-ac', '2' ]
+
+    ## Filtering
+    if conf['xcode']['scale']:
+        ffo.scaler = [ 'scale=%s' % conf['xcode']['scale'] ]
+    if conf['xcode']['anamorphic']:
+        ffo.scaler = [ 'scale=854:480' ]
+        ffo.video += [ '-aspect', '16:9' ]
+
+    # prefix filters to ffo.video
+    if ffo.scaler or ffo.subs:
+        ffo.video = [ '-vf', ','.join(ffo.scaler + ffo.subs) ] + ffo.video
+
+    ## Video
+    ffo.video += [ '-c:v', 'libx264', '-crf', '20', '-preset:v', 'medium' ]
+    if not conf['xcode']['flv']:
+        ffo.video += [ '-movflags', '+faststart' ]
+        vinfo.outfile = vinfo.infile.base + '.mp4'
+    else:
+        vinfo.outfile = vinfo.infile.base + '.flv'
+
+    ## Build ffmpeg command
+    ffoptions = [ '-y', '-i', vinfo.infile.full ] + ffo.video + ffo.audio + [ vinfo.outfile ]
+    ffmpeg.run(ffoptions)
+
+    ## Cleanup
+    logthis("Removing font and subtitle files...",loglevel=LL.VERBOSE)
+    os.remove(subfile)
+    for ff in fontlist: os.remove(ff)
+
+    logthis("** Transcoding complete! **",loglevel=LL.INFO)
 
 def vdataBuild():
     """

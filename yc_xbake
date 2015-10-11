@@ -75,7 +75,14 @@ class xsetup:
                     'xcode': {
                         'subtype': "ass",
                         'abr': 128,
-                        'srt_style': "FontName=MyriadPro-Semibold,Outline=1,Shadow=1,FontSize=24"
+                        'downmix': 'auto',
+                        'acopy': 'auto',
+                        'aid': None,
+                        'srt_style': "FontName=MyriadPro-Semibold,Outline=1,Shadow=1,FontSize=24",
+                        'fontdir': None,
+                        'scale': None,
+                        'flv': False,
+                        'anamorphic': False
                     },
                     'scan': {
                         'scraper': "tvdb"

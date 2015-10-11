@@ -64,13 +64,15 @@ class ER:
     CONF_BAD    = 3
     PROCFAIL    = 4
     NOTFOUND    = 5
+    UNSUPPORTED = 6
     lname = {
                 0: 'none',
                 1: 'opt_missing',
                 2: 'opt_bad',
                 3: 'conf_bad',
                 4: 'procfail',
-                5: 'notfound'
+                5: 'notfound',
+                6: 'unsupported'
             }
 
 class xbError(Exception):
