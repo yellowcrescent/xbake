@@ -33,32 +33,49 @@ from xbake.common.logthis import logthis
 from xbake.common.logthis import ER
 from xbake.common.logthis import failwith
 
-ffpath = None
+class bpath:
+    ffpath = None
+    mepath = None
+    impath = None
+    wppath = None
 
-def locate(prog='ffmpeg'):
+def locate(prog,isFatal=True):
     """
-    Locate path to ffmpeg binary
+    Locate path to a binary
     """
-    global ffpath
     wiout = subprocess.check_output(['whereis',prog])
-    gstr = re.match('^[^:]+: (.+)$', wiout).groups()[0]
-    loclist = gstr.split(' ')
-    ffpath = loclist[0]
-    logthis("Located ffmpeg binary:",suffix=ffpath,loglevel=LL.VERBOSE)
+    bgrp = re.match('^[^:]+: (.+)$', wiout)
+    if bgrp:
+        gstr = bgrp.groups()[0]
+        loclist = gstr.split(' ')
+        tpath = loclist[0]
+        logthis("Located %s binary:" % prog,suffix=tpath,loglevel=LL.VERBOSE)
+        return tpath
+    else:
+        if isFatal:
+            logthis("Unable to locate required binary:",suffix=prog,loglevel=LL.ERROR)
+            failwith(ER.DEPMISSING, "External dependency missing. Unable to continue. Aborting")
+        return False
 
+def locateAll():
+    """
+    Locate required binaries (ffmpeg, mkvextract, etc.)
+    """
+    bpath.ffpath = locate('ffmpeg')
     # check if ffmpeg path auto-detection is set to auto (ffmpeg.path = False)
     # if so, set the path in the ffmpeg option block
     if __main__.xsetup.config['ffmpeg']['path'] == False:
-        __main__.xsetup.config['ffmpeg']['path'] = ffpath
+        __main__.xsetup.config['ffmpeg']['path'] = bpath.ffpath
 
-    return ffpath
+    bpath.mepath = locate('mkvextract')
+    bpath.impath = locate('convert')
+    bpath.wppath = locate('cwebp')
 
 def version():
     """
     Determine ffmpeg version and build information
     """
-    global ffpath
-    verdata = subprocess.check_output([ffpath,'-version'])
+    verdata = subprocess.check_output([bpath.ffpath,'-version'])
     vdx = {
             'version': re.match('^ffmpeg version ([^ ]+).*',verdata,re.I|re.S|re.M).groups()[0],
             'date': re.match('.*^built on (.+) with.*$',verdata,re.I|re.S|re.M).groups()[0],
@@ -74,20 +91,21 @@ def version():
         }
     return vdx
 
-def run(optlist):
+def run(optlist,supout=False):
     """
-    Run ffmpeg; Input a list of options
+    Run ffmpeg; Input a list of options; if `supout` is True, then suppress stderr
     """
-    global ffpath
-
-    logthis("Running ffmpeg with options:",suffix=optlist,loglevel=LL.VERBOSE)
+    logthis("Running ffmpeg with options:",suffix=optlist,loglevel=LL.DEBUG)
     try:
-        fout = subprocess.check_output([ ffpath ] + optlist)
+        if supout:
+            fout = subprocess.check_output([ bpath.ffpath ] + optlist,stderr=subprocess.STDOUT)
+        else:
+            fout = subprocess.check_output([ bpath.ffpath ] + optlist)
     except subprocess.CalledProcessError as e:
         logthis("ffmpeg failed:",suffix=e,loglevel=LL.ERROR)
         failwith(ER.PROCFAIL,"Transcoding failed. Unable to continue. Aborting")
 
-    logthis("ffmpeg completed successfully",loglevel=LL.INFO)
+    logthis("ffmpeg completed successfully",loglevel=LL.DEBUG)
 
     return fout
 
@@ -95,13 +113,12 @@ def dumpFonts(vfile,moveto=None):
     """
     Use ffmpeg -dump_attachment to dump font files for baking subs
     """
-    global ffpath
 
     prelist = os.listdir(".")
     try:
-        subprocess.check_output([ffpath,'-y','-dump_attachment:t','','-i',vfile])
+        subprocess.check_output([bpath.ffpath,'-y','-dump_attachment:t','','-i',vfile],stderr=subprocess.STDOUT)
     except subprocess.CalledProcessError as e:
-        logthis("FFmpeg returned non-zero, but dump_attachment is buggy, so it's OK.",loglevel=LL.WARNING)
+        logthis("FFmpeg returned non-zero, but dump_attachment is buggy, so it's OK.",loglevel=LL.VERBOSE)
 
     # get fonts that were dumped
     postlist = os.listdir(".")
@@ -126,10 +143,9 @@ def dumpSub(vfile,trackid,outfile):
     """
     Use mkvextract to dump subtitle track
     """
-    mepath = '/usr/bin/mkvextract'
 
     try:
-        subprocess.check_output([mepath,'tracks',vfile,"%d:%s" % (trackid,outfile)])
+        subprocess.check_output([bpath.mepath,'tracks',vfile,"%d:%s" % (trackid,outfile)])
     except subprocess.CalledProcessError as e:
         logthis("mkvextract failed:",suffix=e,loglevel=LL.ERROR)
         failwith(ER.PROCFAIL,"Sub extraction failed. Unable to continue. Aborting")
@@ -140,3 +156,30 @@ def dumpSub(vfile,trackid,outfile):
         failwith(ER.PROCFAIL,"Sub extraction failed. Unable to continue. Aborting")
 
     logthis("Extracted subtitle file successfully:",suffix=outfile,loglevel=LL.VERBOSE)
+
+def vscap(vfile,offset,outfile):
+    """
+    Capture frame at specified offset
+    """
+    try:
+        subprocess.check_output([bpath.ffpath,'-y','-ss',offset,'-i',vfile,'-t','1','-r','1',outfile],stderr=subprocess.STDOUT)
+    except subprocess.CalledProcessError as e:
+        logthis("FFmpeg returned non-zero. Frame capture failed.",loglevel=LL.WARNING)
+
+def im_scale(ifile,ofile,h):
+    """
+    ImageMagick: Scale image
+    """
+    try:
+        subprocess.check_output([bpath.impath,ifile,'-resize','x%s' % h,ofile],stderr=subprocess.STDOUT)
+    except subprocess.CalledProcessError as e:
+        logthis("ImageMagick convert failed:",suffix=e,loglevel=LL.ERROR)
+
+def webp_convert(ifile,ofile,m=6,q=90):
+    """
+    WebP: Convert to WebP format
+    """
+    try:
+        subprocess.check_output([bpath.wppath,'-m',str(m),'-q',str(q),ifile,'-o',ofile],stderr=subprocess.STDOUT)
+    except subprocess.CalledProcessError as e:
+        logthis("CWebP failed:",suffix=e,loglevel=LL.ERROR)

@@ -72,7 +72,6 @@ class vinfo:
     id = None
     location = None
     mxmode = None
-    outfile = None
     class sub:
         track = None
         type = None
@@ -86,6 +85,12 @@ class vinfo:
         path = None
         base = None
         ext  = None
+        full = None
+    class outfile:
+        file = None
+        path = None
+        base = None
+        ext = '.mp4'
         full = None
 
 class ffo:
@@ -101,7 +106,7 @@ class ffo:
 # Mongo object
 monjer = None
 
-def transcode(infile,outfile=None,vername=None,id=None,**kwargs):
+def run(infile,outfile=None,vername=None,id=None,**kwargs):
     """
     Implements --xcode mode
     """
@@ -112,16 +117,10 @@ def transcode(infile,outfile=None,vername=None,id=None,**kwargs):
     if not infile:
         failwith(ER.OPT_MISSING, "option infile required (-i/--infile)")
     else:
-        infile = os.path.realpath(os.path.expanduser(infile))
-        vinfo.infile.full = infile
         if not os.path.exists(infile):
             failwith(ER.OPT_BAD, "infile [%s] does not exist" % infile)
         elif not os.path.isfile(infile):
             failwith(ER.OPT_BAD, "infile [%s] is not a regular file" % infile)
-
-    # Split apart the file, path, and extension
-    vinfo.infile.path,vinfo.infile.file = os.path.split(infile)
-    vinfo.infile.base,vinfo.infile.ext  = os.path.splitext(vinfo.infile.file)
 
     # Get video ID (MD5 sum by default)
     if conf['vid']['autoid']:
@@ -139,6 +138,65 @@ def transcode(infile,outfile=None,vername=None,id=None,**kwargs):
     else:
         logthis("Setting update mode to MXM.NONE",loglevel=LL.DEBUG)
         vinfo.mxmode = MXM.NONE
+
+    # Perform transcoding
+    transcode(infile,outfile)
+
+    # Grab an interesting frame for the screenshot
+    if conf['run']['vscap']:
+        sscapture(infile,conf['run']['vscap'])
+
+def sscapture(infile,offset):
+    """
+    Screenshot capture
+    """
+    conf = __main__.xsetup.config
+
+    # split up infile
+    i_real = os.path.realpath(os.path.expanduser(infile))
+    i_path,i_file = os.path.split(infile)
+    i_base,i_ext  = os.path.splitext(i_file)
+
+    # build filename & path stuffs
+    ssout   = i_base + '.png'
+    ssoutwp = i_base + '.webp'
+    ssdir = os.path.realpath(os.path.expanduser(conf['vscap']['basedir']))
+    ssdir_full = conf['vscap']['basedir'] + '/full'
+    ssdir_480 = conf['vscap']['basedir'] + '/480'
+    ssdir_240 = conf['vscap']['basedir'] + '/240'
+    ssout_full = os.path.realpath(ssdir_full + '/' + ssout)
+    ssout_fullwp = os.path.realpath(ssdir_full + '/' + ssoutwp)
+    ssout_480 = os.path.realpath(ssdir_480 + '/' + ssout)
+    ssout_480wp = os.path.realpath(ssdir_480 + '/' + ssoutwp)
+    ssout_240 = os.path.realpath(ssdir_240 + '/' + ssout)
+    ssout_240wp = os.path.realpath(ssdir_240 + '/' + ssoutwp)
+
+    # grab the frame
+    logthis("Capturing frame at offset:",suffix=offset,loglevel=LL.INFO)
+    ffmpeg.vscap(i_real, offset, ssout_full)
+
+    # scale to smaller versions; convert all versions to WebP
+    logthis("Generating intermediate sizes and WebP versions",loglevel=LL.VERBOSE)
+    ffmpeg.im_scale(ssout_full, ssout_480, 480)
+    ffmpeg.im_scale(ssout_full, ssout_240, 240)
+    ffmpeg.webp_convert(ssout_full, ssout_fullwp)
+    ffmpeg.webp_convert(ssout_480, ssout_480wp)
+    ffmpeg.webp_convert(ssout_240, ssout_240wp)
+
+    logthis("Screenshot generation complete.",ccode=C.GRN,loglevel=LL.INFO)
+
+
+def transcode(infile,outfile=None):
+    """
+    Transcode video
+    """
+    global monjer
+    conf = __main__.xsetup.config
+
+    # Split apart the input file, path, and extension
+    vinfo.infile.full = os.path.realpath(os.path.expanduser(infile))
+    vinfo.infile.path,vinfo.infile.file = os.path.split(vinfo.infile.full)
+    vinfo.infile.base,vinfo.infile.ext  = os.path.splitext(vinfo.infile.file)
 
     # Get Matroska data
     logthis("Getting Matroska data",loglevel=LL.DEBUG)
@@ -170,7 +228,7 @@ def transcode(infile,outfile=None,vername=None,id=None,**kwargs):
 
         # Loop through the tracks to find the matching track or default track
         for st in stracks:
-            logthis("** Subs: Track %d (%s) - '%s' [%s] %s" % (st['number'] - 1,st['codec_id'],st['name'],st['language'],strifset(st['default'],"***")),loglevel=LL.VERBOSE)
+            logthis("** Subs: Track %d (%s) - '%s' [%s] %s" % (st['number'] - 1,st['codec_id'],st['name'],st['language'],strifset(st['default'],"***")),loglevel=LL.INFO)
             if st['default']: deftrack = st
             if subset == (st['number'] - 1): vinfo.sub.tdata = st
         # if no track found, use default
@@ -187,7 +245,7 @@ def transcode(infile,outfile=None,vername=None,id=None,**kwargs):
         # Set ffmpeg options for subs
         # For ASS subs, dump font attachments
         if vinfo.sub.type == STYPE.ASS:
-            logthis("Dumping font attachments for subtitles",loglevel=LL.VERBOSE)
+            logthis("Dumping font attachments...",loglevel=LL.INFO)
             fontlist = ffmpeg.dumpFonts(vinfo.infile.full)
             subfile = "subtrack.ass"
             ffo.subs = [ 'ass=%s' % subfile ]
@@ -199,6 +257,7 @@ def transcode(infile,outfile=None,vername=None,id=None,**kwargs):
             failwith(ER.UNSUPPORTED, "Sub type not supported. Unable to continue. Aborting.")
 
         # Extract subtitle track
+        logthis("Extracting subtitle track from container...",loglevel=LL.INFO)
         ffmpeg.dumpSub(vinfo.infile.full, vinfo.sub.track, subfile)
 
     ## Audio
@@ -210,7 +269,7 @@ def transcode(infile,outfile=None,vername=None,id=None,**kwargs):
         subset = True
 
     for st in atracks:
-        logthis("** Audio: Track %d (%s) - '%s' %dch [%s] %s" % (st['number'] - 1,st['codec_id'],st['name'],st['channels'],st['language'],strifset(st['default'],"***")),loglevel=LL.VERBOSE)
+        logthis("** Audio: Track %d (%s) - '%s' %dch [%s] %s" % (st['number'] - 1,st['codec_id'],st['name'],st['channels'],st['language'],strifset(st['default'],"***")),loglevel=LL.INFO)
         if st['default']: deftrack = st
         if subset == (st['number'] - 1): vinfo.aud.tdata = st
     # if no track found, use default
@@ -275,16 +334,38 @@ def transcode(infile,outfile=None,vername=None,id=None,**kwargs):
     if ffo.scaler or ffo.subs:
         ffo.video = [ '-vf', ','.join(ffo.scaler + ffo.subs) ] + ffo.video
 
-    ## Video
+    ## Video & Output filename
     ffo.video += [ '-c:v', 'libx264', '-crf', '20', '-preset:v', 'medium' ]
+
+    # Get output path
+    if outfile and os.path.isdir(outfile):
+        vinfo.outfile.path = os.path.realpath(os.path.expanduser(outfile))
+    else:
+        vinfo.outfile.path = os.path.realpath('.')
+
+    # Select output container & extension
     if not conf['xcode']['flv']:
         ffo.video += [ '-movflags', '+faststart' ]
-        vinfo.outfile = vinfo.infile.base + '.mp4'
+        vinfo.outfile.ext = '.mp4'
     else:
-        vinfo.outfile = vinfo.infile.base + '.flv'
+        vinfo.outfile.ext = '.flv'
+
+    # Get output filename
+    if outfile and not os.path.isdir(outfile):
+        vinfo.outfile.path,vinfo.outfile.file = os.path.split(os.path.realpath(os.path.expanduser(outfile)))
+        vinfo.outfile.base,vinfo.outfile.ext = os.path.split(vinfo.outfile.file)
+    else:
+        vinfo.outfile.base = vinfo.infile.base
+
+    # Outfile realpath
+    vinfo.outfile.full = vinfo.outfile.path + '/' + vinfo.outfile.base + vinfo.outfile.ext
+
+    logthis("-- Using Subtitle Track:",suffix=vinfo.sub.track,loglevel=LL.INFO)
+    logthis("-- Using Audio Track:",suffix=vinfo.aud.track,loglevel=LL.INFO)
+    logthis("-- Output filename:",suffix=vinfo.outfile.full,loglevel=LL.INFO)
 
     ## Build ffmpeg command
-    ffoptions = [ '-y', '-i', vinfo.infile.full ] + ffo.video + ffo.audio + [ vinfo.outfile ]
+    ffoptions = [ '-y', '-i', vinfo.infile.full ] + ffo.video + ffo.audio + [ vinfo.outfile.full ]
     ffmpeg.run(ffoptions)
 
     ## Cleanup
@@ -292,7 +373,7 @@ def transcode(infile,outfile=None,vername=None,id=None,**kwargs):
     os.remove(subfile)
     for ff in fontlist: os.remove(ff)
 
-    logthis("** Transcoding complete! **",loglevel=LL.INFO)
+    logthis("Transcoding complete",ccode=C.GRN,loglevel=LL.INFO)
 
 def vdataBuild():
     """

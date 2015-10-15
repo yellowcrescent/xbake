@@ -52,7 +52,8 @@ class xsetup:
                         'infile': None,
                         'outfile': None,
                         'id': None,
-                        'bake': None
+                        'bake': None,
+                        'vscap': None
                     },
                     'core': {
                         'loglevel': LL.INFO
@@ -61,6 +62,11 @@ class xsetup:
                         'autoid': 1,
                         'location': None,
                         'vername': None
+                    },
+                    'vscap': {
+                        'basedir': ".",
+                        'webp_m': 6,
+                        'webp_q': 90
                     },
                     'mongo': {
                         'host': "localhost",
@@ -207,7 +213,7 @@ if __name__ == '__main__':
     loglevel(xsetup.config['core']['loglevel'])
 
     # Get ffmpeg version
-    ffmpeg.locate()
+    ffmpeg.locateAll()
     ffver = ffmpeg.version()
     logthis("FFmpeg Version:",suffix="%s (%s)" % (ffver['version'],ffver['date']),loglevel=LL.VERBOSE)
 
@@ -219,4 +225,4 @@ if __name__ == '__main__':
         sys.excepthook = exceptionHandler
 
     if xsetup.config['run']['mode'] == "xcode":
-        xcode.transcode(xsetup.config['run']['infile'])
+        xcode.run(xsetup.config['run']['infile'])

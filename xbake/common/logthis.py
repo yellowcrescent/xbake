@@ -65,6 +65,7 @@ class ER:
     PROCFAIL    = 4
     NOTFOUND    = 5
     UNSUPPORTED = 6
+    DEPMISSING  = 7
     lname = {
                 0: 'none',
                 1: 'opt_missing',
@@ -72,7 +73,8 @@ class ER:
                 3: 'conf_bad',
                 4: 'procfail',
                 5: 'notfound',
-                6: 'unsupported'
+                6: 'unsupported',
+                7: 'depmissing'
             }
 
 class xbError(Exception):
@@ -137,7 +139,12 @@ def logthis(logline,loglevel=LL.DEBUG,prefix=None,suffix=None,ccode=None):
         lmodname = "yc_cpx"
         lfunc = "(main)"
 
-    finline = '%s[%s:%s%s%s:%s] %s<%s>%s %s%s\n' % (C.WHT,lmodname,C.YEL,lfunc,C.WHT,lline,C.RED,LL.lname[loglevel],C.WHT,zline,C.OFF)
+    if g_loglevel > LL.INFO:
+        dbxmod = '%s[%s:%s%s%s:%s] ' % (C.WHT,lmodname,C.YEL,lfunc,C.WHT,lline)
+    else:
+        dbxmod = ''
+
+    finline = '%s%s<%s>%s %s%s\n' % (dbxmod,C.RED,LL.lname[loglevel],C.WHT,zline,C.OFF)
 
     # write log message
     # TODO: add syslog (/dev/log) functionality
