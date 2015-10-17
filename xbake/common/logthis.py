@@ -66,6 +66,7 @@ class ER:
     NOTFOUND    = 5
     UNSUPPORTED = 6
     DEPMISSING  = 7
+    NOTIMPL      = 8
     lname = {
                 0: 'none',
                 1: 'opt_missing',
@@ -74,7 +75,8 @@ class ER:
                 4: 'procfail',
                 5: 'notfound',
                 6: 'unsupported',
-                7: 'depmissing'
+                7: 'depmissing',
+                8: 'notimpl',
             }
 
 class xbError(Exception):

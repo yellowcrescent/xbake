@@ -41,8 +41,8 @@ from xbake.xcode import xcode
 class xsetup:
     """Contains version information and globals"""
     ## Version info
-    version = "0.10.2"
-    vdate   = "10 Oct 2015"
+    version = "0.10.3"
+    vdate   = "17 Oct 2015"
 
     config   =  None
     lconfig  =  None
@@ -204,7 +204,12 @@ def parse_cli():
 ##
 
 if __name__ == '__main__':
-    show_banner()
+
+    # Show banner
+    if len(sys.argv) < 2 or sys.argv[1] != '--version' and sys.argv[1] != '-q':
+        show_banner()
+
+    # Set default loglevel
     loglevel(xsetup.defaults['core']['loglevel'])
 
     # parse CLI options and load running config
@@ -225,4 +230,4 @@ if __name__ == '__main__':
         sys.excepthook = exceptionHandler
 
     if xsetup.config['run']['mode'] == "xcode":
-        xcode.run(xsetup.config['run']['infile'])
+        xcode.run(xsetup.config['run']['infile'],xsetup.config['run']['outfile'],xsetup.config['vid']['vername'])

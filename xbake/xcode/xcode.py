@@ -72,6 +72,7 @@ class vinfo:
     id = None
     location = None
     mxmode = None
+    vername = None
     class sub:
         track = None
         type = None
@@ -133,18 +134,30 @@ def run(infile,outfile=None,vername=None,id=None,**kwargs):
     monjer = db.mongo(conf['mongo'])
 
     # Build pre-transcode data
+    vinfo.vername = vername
     if monjer and vinfo.id:
-        vdataBuild()
+        vdata = vdataBuild()
     else:
         logthis("Setting update mode to MXM.NONE",loglevel=LL.DEBUG)
         vinfo.mxmode = MXM.NONE
+        vdata = False
 
     # Perform transcoding
-    transcode(infile,outfile)
+    vvdata = transcode(infile,outfile)
+    if vdata:
+        vdata['versions'][vinfo.vername] = vvdata
 
     # Grab an interesting frame for the screenshot
     if conf['run']['vscap']:
-        sscapture(infile,conf['run']['vscap'])
+        vsdata = sscapture(infile,conf['run']['vscap'])
+        if vdata:
+            vdata['vscap'] = vsdata
+
+    # Insert data into Mongo
+    if vdata:
+        vdataInsert(vdata)
+
+    logthis("*** Transcoding task completed successfully.",loglevel=LL.INFO)
 
 def sscapture(infile,offset):
     """
@@ -184,6 +197,11 @@ def sscapture(infile,offset):
     ffmpeg.webp_convert(ssout_240, ssout_240wp)
 
     logthis("Screenshot generation complete.",ccode=C.GRN,loglevel=LL.INFO)
+
+    # Set vscap vdata
+    vsdata = { 'filename': ssout, 'offset': offset }
+
+    return vsdata
 
 
 def transcode(infile,outfile=None):
@@ -359,6 +377,8 @@ def transcode(infile,outfile=None):
 
     # Outfile realpath
     vinfo.outfile.full = vinfo.outfile.path + '/' + vinfo.outfile.base + vinfo.outfile.ext
+    vinfo.outfile.file = os.path.split(vinfo.outfile.full)[1]
+
 
     logthis("-- Using Subtitle Track:",suffix=vinfo.sub.track,loglevel=LL.INFO)
     logthis("-- Using Audio Track:",suffix=vinfo.aud.track,loglevel=LL.INFO)
@@ -374,6 +394,35 @@ def transcode(infile,outfile=None):
     for ff in fontlist: os.remove(ff)
 
     logthis("Transcoding complete",ccode=C.GRN,loglevel=LL.INFO)
+
+    if vinfo.vername:
+        vvdata = {
+                    'encoder': { 'encode': ' '.join(ffoptions) },
+                    'mediainfo': util.mediainfo(vinfo.outfile.full),
+                    'location': {
+                        'uri': vinfo.vername + '/' + vinfo.outfile.file,
+                        'realpath': vinfo.outfile.full
+                    }
+                 }
+    else:
+        vvdata = None
+
+    return vvdata
+
+
+def vdataInsert(xvid):
+    """
+    Insert data into MongoDB collection
+    """
+    global monjer
+
+    logthis("Inserting data into Mongo...",loglevel=LL.INFO)
+    if vinfo.mxmode == MXM.INSERT:
+        monjer.insert('videos',xvid)
+    elif vinfo.mxmode == MXM.UPDATE:
+        vsetter = { '$set': { 'versions.'+vinfo.vername : xvid['versions'][vinfo.vername] } }
+        monjer.update_set('videos',vinfo.id,vsetter)
+
 
 def vdataBuild():
     """
@@ -445,10 +494,12 @@ def vdataBuild():
             # Entry already exists in db.videos
             logthis("Entry already exists. Will update version or vscap information.",loglevel=LL.INFO)
             vinfo.mxmode = MXM.UPDATE
+            xvid = False
     else:
         logthis("No matching entry found in database. ID:",suffix=vinfo.id,loglevel=LL.ERROR)
         failwith(ER.NOTFOUND, "No match for VID. Will not contiue. Aborting.")
 
+    return xvid
 
 def getMatroska(vfile):
     """
