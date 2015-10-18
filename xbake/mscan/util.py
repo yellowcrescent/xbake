@@ -150,8 +150,23 @@ def mediainfo(fname):
         ttype = tt['track_type'].lower()
         tblock = {}
         for tkey,tval in tt.items():
+            # Check all menu items (chapters)
+            if ttype == 'menu':
+                # We only care about the actual chapters/markers with timestamps
+                tss = re.match('^(?P<hour>[0-9]{2})_(?P<min>[0-9]{2})_(?P<msec>[0-9]{5})$',tkey)
+                if tss:
+                    mts = tss.groupdict()
+                    mtt = re.match('^(?P<lang>[a-z]{2}):(?P<title>.+)$',tval).groupdict()
+                    mti = {
+                            'offset': (float(mts['hour']) * 3600.0) + (float(mts['min']) * 60.0) + (float(mts['msec']) / 1000.0),
+                            'title': mtt['title'],
+                            'lang': mtt['lang'],
+                            'tstamp': "%02d:%02d:%06.3f" % (int(mts['hour']),int(mts['min']),(float(mts['msec']) / 1000.0))
+                          }
+                    outdata['menu'].append(mti)
+
             # Make sure it's a key we care about
-            if milut.has_key(tkey):
+            elif milut.has_key(tkey):
                 tname = tkey
 
                 # If the object in the LUT is a dict, it has extended info
