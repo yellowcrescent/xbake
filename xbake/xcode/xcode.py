@@ -420,7 +420,7 @@ def vdataInsert(xvid):
     if vinfo.mxmode == MXM.INSERT:
         monjer.insert('videos',xvid)
     elif vinfo.mxmode == MXM.UPDATE:
-        vsetter = { '$set': { 'versions.'+vinfo.vername : xvid['versions'][vinfo.vername] } }
+        vsetter = { 'versions.'+vinfo.vername : xvid['versions'][vinfo.vername] }
         monjer.update_set('videos',vinfo.id,vsetter)
 
 

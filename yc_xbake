@@ -37,6 +37,7 @@ from xbake.common.logthis import exceptionHandler
 from xbake.common import rcfile
 from xbake.xcode import ffmpeg
 from xbake.xcode import xcode
+from xbake.mscan import mscan
 
 class xsetup:
     """Contains version information and globals"""
@@ -53,7 +54,8 @@ class xsetup:
                         'outfile': None,
                         'id': None,
                         'bake': None,
-                        'vscap': None
+                        'vscap': None,
+                        'single': False
                     },
                     'core': {
                         'loglevel': LL.INFO
@@ -91,7 +93,9 @@ class xsetup:
                         'anamorphic': False
                     },
                     'scan': {
-                        'scraper': "tvdb"
+                        'scraper': "tvdb",
+                        'mforce': False,
+                        'nochecksum': False
                     },
                     'thetvdb': {
                         'mirror': "http://thetvdb.com",
@@ -231,3 +235,5 @@ if __name__ == '__main__':
 
     if xsetup.config['run']['mode'] == "xcode":
         xcode.run(xsetup.config['run']['infile'],xsetup.config['run']['outfile'],xsetup.config['vid']['vername'])
+    elif xsetup.config['run']['mode'] == "scan":
+        mscan.run(xsetup.config['run']['infile'])

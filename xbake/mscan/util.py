@@ -22,6 +22,9 @@ import json
 import signal
 import time
 import subprocess
+import pwd
+import grp
+import hashlib
 from pymediainfo import MediaInfo
 
 # Logging & Error handling
@@ -36,10 +39,15 @@ rhpath = '/usr/bin/rhash'
 def md5sum(fname):
     return rhash(fname, "md5")['md5']
 
+def checksum(fname):
+    return rhash(fname, ["md5","CRC32","ed2k"])
+
 def rhash(infile,hlist):
     global rhpath
-    if type(hlist) == str:
+    if isinstance(hlist,str):
         hxlist = [ hlist ]
+    else:
+        hxlist = hlist
     hxpf = ""
     for i in hxlist:
         hxpf += "%%{%s} " % i
@@ -49,11 +57,42 @@ def rhash(infile,hlist):
     k = 0
     for i in rolist:
         try:
-            hout[hxlist[k]] = i
+            hout[hxlist[k].lower()] = i
         except IndexError:
             break
         k += 1
     return hout
+
+def dstat(infile):
+    """
+    Wrapper around os.stat(), which returns the output as a dict instead of an object
+    """
+    fsx = os.stat(infile)
+    sout =  {
+                'dev': fsx.st_dev,
+                'ino': fsx.st_ino,
+                'mode': fsx.st_mode,
+                'nlink': fsx.st_nlink,
+                'uid': fsx.st_uid,
+                'gid': fsx.st_gid,
+                'rdev': fsx.st_rdev,
+                'size': fsx.st_size,
+                'atime': fsx.st_atime,
+                'mtime': fsx.st_mtime,
+                'ctime': fsx.st_ctime,
+                'blksize': fsx.st_blksize,
+                'blocks': fsx.st_blocks
+            }
+    return sout
+
+def getuser(xuid):
+    return pwd.getpwuid(xuid).pw_name
+
+def getgroup(xgid):
+    return grp.getgrgid(xgid).gr_name
+
+def getmkey(istat):
+    return hashlib.md5(str(istat['ino']) + str(istat['mtime']) + str(istat['size'])).hexdigest()
 
 ## Mediainfo parser
 
