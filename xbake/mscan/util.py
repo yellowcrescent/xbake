@@ -205,7 +205,7 @@ def mediainfo(fname):
         # add track block to output data
         if ttype == 'general':
             outdata['general'] = tblock
-        else:
+        elif ttype != 'menu':
             outdata[ttype].append(tblock)
 
     logthis("Got mediainfo for file:\n",suffix=outdata,loglevel=LL.DEBUG2)

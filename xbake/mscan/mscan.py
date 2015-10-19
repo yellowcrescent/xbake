@@ -22,7 +22,7 @@ import json
 import signal
 import time
 import subprocess
-import enzyme
+import distance
 
 # Logging & Error handling
 from xbake.common.logthis import C
@@ -42,6 +42,21 @@ class DSTS:
     NEW = 'new'
     UNCHANGED = 'unchanged'
     RENAMED = 'renamed'
+
+# File match regexes
+fregex = [
+            "^(\[[^\]]+\])[\s._]*(?P<series>.+?)(?:[\s._]-[\s._]|[\._])(?:(?P<special>(NCOP|NCED|OP|ED|PV|OVA|ONA|Special|Insert|Preview|Lite|Short)\s*-?\s*[0-9]{0,2})|(?:[eEpP]{2}[\s._]*)?(?P<epnum>[0-9]{1,3}))(?P<version>[vep]{1,2}[0-9]{1,2}([-,][0-9]{1,2})?)?",
+            "^(?P<series>.+?)(?P<season>[0-9]{1,2})x(?P<epnum>[0-9]{1,2})(.*)$",
+            "^(?P<series>.+)[\.\-_ ]SE?(?P<season>[0-9]{1,2})EP?(?P<epnum>[0-9]{1,2})(?:[\.\-_ ](?<eptitle>.+?))?[\.\-_\[\( ]+(?:([0-9]{3,4}p|web|aac|bd|tv|hd|x?264)+)",
+            "^(?P<series>.+)[\._](?P<epnum>[0-9]{1,4})[\._](.*)$",
+            "^(?P<series>.+?)[\-_ ](?P<epnum>[0-9]{2})[\-_ ](.*)$",
+            "^(?P<series>.+)[sS](?P<season>[0-9]{1,2}) ?[eE](?P<epnum>[0-9]{1,2})(.*)$",
+            "^(?P<series>.+?) (?P<season>[0-9]{1,2}) (?P<epnum>[0-9]{1,2}) (.*)$",
+            "^(?P<series>.+) - (?P<epnum>[0-9]{1,2})(.*)$",
+            "^(?P<series>.+?)(?P<epnum>[0-9]{1,4})\.(.+)$",
+            "^(?P<series>.+?)(?P<epnum>[0-9]{2,3})(.+)$",
+            "^(?P<epnum>[0-9]{2,4})(.+)$"
+         ]
 
 # File extension filter
 fext = re.compile('\.(avi|mkv|mpg|mpeg|wmv|vp8|ogm|mp4|mpv)',re.I)
@@ -163,16 +178,113 @@ def enumdir(dpath,dreflinks=True,mforce=False,nochecksum=False):
 
             # Add filedata to ddex, new_files++, and move on to the next one
             ddex[xv] = dasc
-            new_files += 1
+            new_files += 1git
 
     # Enumeration complete
-    print("\nOutput:\n%s\n" % (json.dumps(ddex,sort_keys=True,indent=4,separators=(',', ': '))))
+    print("\nOutput:\n%s\n" % (json.dumps(ddex,indent=4,separators=(',', ': '))))
 
 
-def parse_episode_filename(dasc,ovrx):
-    # TODO
+def parse_episode_filename(dasc,ovrx,single=False,longep=False):
+    """
+    Determines series name, season, episode, and special release data from
+    episode filenames and directory path. Outputs the data as the 'fparse' array.
+    """
     fparse = { 'series': None, 'season': None, 'episode': None, 'special': None }
+    dval = dasc['fpath']['base']
+
+    # Regex matching rounds
+    for rgx in fregex:
+        mm = re.search(rgx, dval, re.I)
+        if mm:
+            mm = mm.groupdict()
+            # determine series name
+            if mm.has_key('series'):
+                if not single:
+                    ldist = distance.nlevenshtein(dasc['dpath']['base'].lower(), mm['series'].lower())
+                    if ldist < 0.26:
+                        sser = dasc['dpath']['base']
+                        logthis("Using directory name for series name (ldist = %0.3f)" % (ldist),loglevel=LL.DEBUG)
+                    else:
+                        sser = filter_fname(mm['series'])
+                        logthis("Using series name extracted from filename (ldist = %0.3f)" % (ldist),loglevel=LL.DEBUG)
+                else:
+                    sser = filter_fname(mm['series'])
+                    logthis("Using series name extracted from filename",loglevel=LL.DEBUG)
+            else:
+                # Check base directory name; if it has the season number or season name
+                sspc = re.match('(season|s)\s*(?P<season>[0-9]{1,2})', dasc['dpath']['base'], re.I)
+                if sspc:
+                    # Grab series name from the parent directory; tuck the season number away for later
+                    sspc = sspc.groupdict()
+                    mm['season'] = sspc['season']
+                    sser = dasc['dpath']['parent']
+                else:
+                    # Directory name should be series name (if you name your directories properly!)
+                    sser = dasc['dpath']['base']
+
+            # Grab season name from parsed filename; if it doesn't exist, assume Season 1
+            snum = mm.get('season','1')
+            if snum is None: snum = '1'
+
+            # Get episode number
+            epnum = mm.get('epnum','0')
+            if epnum is None: epnum = '0'
+
+            # Fix episode number, if necessary
+            if not longep:
+                if int(epnum) > 100:
+                    # For numbers over 100, assume SSEE encoding
+                    # (ex: 103 = Season 1, Episode 3)
+                    epnum = int(mm['epnum'][-2:])
+                    snum  = int(mm['epnum'][:(len(mm['epnum']) -2)])
+
+            # Get special episode type
+            special = mm.get('special',"")
+            if special: special = special.strip()
+
+            # Set overrides
+            if ovrx.has_key('season'):
+                snum = int(ovrx['season'])
+                logthis("Season set by override. Season:",suffix=snum,loglevel=LL.VERBOSE)
+
+            if ovrx.has_key('series_name'):
+                sser = ovrx['series_name']
+                logthis("Series name set by override. Series:",suffix=sser,loglevel=LL.VERBOSE)
+
+            logthis("Matched [%s] with regex:" % (dval),suffix=rgx,loglevel=LL.DEBUG)
+            logthis("> Ser[%s] Se#[%s] Ep#[%s] Special[%s]" % (sser,snum,epnum,special),loglevel=LL.DEBUG)
+
+            fparse = { 'series': sser, 'season': int(snum), 'episode': int(epnum), 'special': special }
+            # TODO: tdex_id = series_add()
+            break
+
     return fparse
+
+
+def filter_fname(fname):
+    """
+    Take an input title string that was extracted from a filename, and
+    if there are more periods or underscores than spaces, then replace them
+    (underscores or periods) with spaces.
+    """
+    # Count number of spaces, periods, and underscores
+    spc = fname.count(' ')
+    spd = fname.count('.')
+    spu = fname.count('_')
+
+    # No spaces? Something's up
+    if spc == 0:
+        if spd > spu:
+            nout = fname.replace('.',' ')
+        else:
+            nout = fname.replace('_',' ')
+        # fix double-spaces
+        nout = nout.replace('  ',' ')
+    else:
+        # return without changes
+        nout = fname
+
+    return fname
 
 
 def parse_overrides(xpath):

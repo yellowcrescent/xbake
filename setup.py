@@ -4,7 +4,7 @@
 from setuptools import setup, find_packages
 setup(
     name = "yc_xbake",
-    version = "0.10.3",
+    version = "0.10.4",
     author = "Jacob Hipps",
     author_email = "jacob@ycnrg.org",
     license = "GPL",
@@ -15,7 +15,7 @@ setup(
     packages = find_packages(),
     scripts = ['yc_xbake'],
 
-    install_requires = ['docutils>=0.3','pymongo>=3.0','redis>=2.10','pymediainfo>=1.4.0','enzyme>=0.4.1'],
+    install_requires = ['docutils>=0.3','pymongo>=3.0','redis>=2.10','pymediainfo>=1.4.0','enzyme>=0.4.1','distance>=0.1.3'],
 
     package_data = {
         '': [ '*.md' ],

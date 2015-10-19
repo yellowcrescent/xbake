@@ -42,8 +42,8 @@ from xbake.mscan import mscan
 class xsetup:
     """Contains version information and globals"""
     ## Version info
-    version = "0.10.3"
-    vdate   = "17 Oct 2015"
+    version = "0.10.4"
+    vdate   = "18 Oct 2015"
 
     config   =  None
     lconfig  =  None
