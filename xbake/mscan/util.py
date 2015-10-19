@@ -112,7 +112,7 @@ milut =  {
             'format_profile': MIP.COPY,
             'codec_id': MIP.COPY,
             'duration': MIP.FLOAT|MIP.DIV1000,
-            'overall_bit_rate': MIP.COPY,
+            'overall_bit_rate': MIP.FLOAT|MIP.DIV1000,
             'encoded_date': MIP.DATE,
             'writing_application': MIP.COPY,
             'writing_library': MIP.COPY,
@@ -138,7 +138,7 @@ def mediainfo(fname):
 
     logthis("Parsing mediainfo from file:",suffix=fname,loglevel=LL.VERBOSE)
 
-    # parse file and read convert raw XML with pymediainfo
+    # parse output of mediainfo and convert raw XML with pymediainfo
     miobj = MediaInfo.parse(fname)
     miraw = miobj.to_data()['tracks']
 
@@ -156,11 +156,11 @@ def mediainfo(fname):
                 tss = re.match('^(?P<hour>[0-9]{2})_(?P<min>[0-9]{2})_(?P<msec>[0-9]{5})$',tkey)
                 if tss:
                     mts = tss.groupdict()
-                    mtt = re.match('^(?P<lang>[a-z]{2}):(?P<title>.+)$',tval).groupdict()
+                    mtt = re.match('^(?P<lang>[a-z]{2})?:?(?P<title>.+)$',tval).groupdict()
                     mti = {
                             'offset': (float(mts['hour']) * 3600.0) + (float(mts['min']) * 60.0) + (float(mts['msec']) / 1000.0),
-                            'title': mtt['title'],
-                            'lang': mtt['lang'],
+                            'title': mtt.get('title',""),
+                            'lang': mtt.get('lang',"en"),
                             'tstamp': "%02d:%02d:%06.3f" % (int(mts['hour']),int(mts['min']),(float(mts['msec']) / 1000.0))
                           }
                     outdata['menu'].append(mti)

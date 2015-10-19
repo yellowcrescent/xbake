@@ -47,7 +47,7 @@ class DSTS:
 fregex = [
             "^(\[[^\]]+\])[\s._]*(?P<series>.+?)(?:[\s._]-[\s._]|[\._])(?:(?P<special>(NCOP|NCED|OP|ED|PV|OVA|ONA|Special|Insert|Preview|Lite|Short)\s*-?\s*[0-9]{0,2})|(?:[eEpP]{2}[\s._]*)?(?P<epnum>[0-9]{1,3}))(?P<version>[vep]{1,2}[0-9]{1,2}([-,][0-9]{1,2})?)?",
             "^(?P<series>.+?)(?P<season>[0-9]{1,2})x(?P<epnum>[0-9]{1,2})(.*)$",
-            "^(?P<series>.+)[\.\-_ ]SE?(?P<season>[0-9]{1,2})EP?(?P<epnum>[0-9]{1,2})(?:[\.\-_ ](?<eptitle>.+?))?[\.\-_\[\( ]+(?:([0-9]{3,4}p|web|aac|bd|tv|hd|x?264)+)",
+            "^(?P<series>.+)[\.\-_ ]SE?(?P<season>[0-9]{1,2})EP?(?P<epnum>[0-9]{1,2})(?:[\.\-_ ](?P<eptitle>.+?))?[\.\-_\[\( ]+(?:([0-9]{3,4}p|web|aac|bd|tv|hd|x?264)+)",
             "^(?P<series>.+)[\._](?P<epnum>[0-9]{1,4})[\._](.*)$",
             "^(?P<series>.+?)[\-_ ](?P<epnum>[0-9]{2})[\-_ ](.*)$",
             "^(?P<series>.+)[sS](?P<season>[0-9]{1,2}) ?[eE](?P<epnum>[0-9]{1,2})(.*)$",
@@ -80,9 +80,12 @@ def run(infile,dreflinks=True,**kwargs):
             failwith(ER.OPT_BAD, "file [%s] is not a directory; use --single mode if scanning only one file" % (infile))
 
     if conf['run']['single']:
-        scan_single(infile)
+        new_files,flist = scan_single(infile,conf['scan']['mforce'],conf['scan']['nochecksum'])
     else:
-        enumdir(infile,dreflinks,conf['scan']['mforce'],conf['scan']['nochecksum'])
+        new_files,flist = scan_dir(infile,dreflinks,conf['scan']['mforce'],conf['scan']['nochecksum'])
+
+    # XXX-DEBUG
+    print("\nOutput:\n%s\n" % (json.dumps(flist,indent=4,separators=(',', ': '))))
 
     # Connect to Mongo
     #monjer = db.mongo(conf['mongo'])
@@ -90,7 +93,10 @@ def run(infile,dreflinks=True,**kwargs):
     logthis("*** Scanning task completed successfully.",loglevel=LL.INFO)
 
 
-def enumdir(dpath,dreflinks=True,mforce=False,nochecksum=False):
+def scan_dir(dpath,dreflinks=True,mforce=False,nochecksum=False):
+    """
+    Scan a directory recursively; follows symlinks by default
+    """
 
     ddex = {}
     new_files = 0
@@ -109,7 +115,6 @@ def enumdir(dpath,dreflinks=True,mforce=False,nochecksum=False):
         for xv in flist:
             xvreal = os.path.realpath(unicode(tdir + '/' + xv))
             xvbase,xvext = os.path.splitext(xv)
-            dasc = {}
 
             # Skip .xbake file
             if unicode(xv) == unicode('.xbake'): continue
@@ -130,70 +135,106 @@ def enumdir(dpath,dreflinks=True,mforce=False,nochecksum=False):
                 logthis("Skipping file. Matched rule in override ignore list:",suffix=cfile,loglevel=LL.INFO)
                 continue
 
-            logthis("Examining file:",suffix=xv,loglevel=LL.INFO)
+            # Get file properties
+            dasc = scanfile(xvreal,ovrx,mforce,nochecksum)
+            if dasc:
+                ddex[xv] = dasc
+                new_files += 1
 
-            # Get file path information
-            dasc['dpath'] = { 'base': tdir_base, 'parent': tdir_parent, 'full': tdir }
-            dasc['fpath'] = { 'real': xvreal, 'base': xvbase, 'file': xv, 'ext': xvext.replace('.','') }
-
-            # Stat, Extended Attribs, Ownership
-            dasc['stat'] = util.dstat(xvreal)
-            dasc['owner'] = { 'user': util.getuser(dasc['stat']['uid']), 'group': util.getgroup(dasc['stat']['gid']) }
-            # TODO: get xattribs
-
-            # Modification key (MD5 of inode number + mtime + filesize)
-            mkey_id = util.getmkey(dasc['stat'])
-            dasc['mkey_id'] = mkey_id
-
-            # Determine file status (new, unchanged, or file unchanged but moved/renamed)
-            xzist = mdb.mkey_match(mkey_id,xvreal)
-            if xzist == MCMP.RENAMED:
-                xstatus = DSTS.RENAMED
-            elif xzist == MCMP.NOCHG:
-                xstatus = DSTS.UNCHANGED
-            else:
-                xstatus = DSTS.NEW
-
-            dasc['status'] = xstatus
-
-            # Check status and carry on as needed
-            if xstatus == DSTS.UNCHANGED:
-                logthis("File unchanged:",suffix=xv,loglevel=LL.INFO)
-                if mforce:
-                    logthis("File unchanged, but scan forced. Flag --mforce in effect.",loglevel=LL.WARNING)
-                else:
-                    # On to the next one...
-                    continue
-
-            # Caclulate checksums
-            if not nochecksum:
-                logthis("Calculating checksum...",loglevel=LL.INFO)
-                dasc['checksum'] = util.checksum(xvreal)
-
-            # Get mediainfo
-            dasc['mediainfo'] = util.mediainfo(xvreal)
-
-            # Determine series information from path and filename
-            dasc['fparse'] = parse_episode_filename(dasc,ovrx)
-
-            # Add filedata to ddex, new_files++, and move on to the next one
-            ddex[xv] = dasc
-            new_files += 1
-
-    # Enumeration complete
-    print("\nOutput:\n%s\n" % (json.dumps(ddex,indent=4,separators=(',', ': '))))
+    return (new_files,ddex)
 
 
-def parse_episode_filename(dasc,ovrx,single=False,longep=False):
+def scan_single(dfile,mforce=False,nochecksum=False):
+    """
+    Scan a single media file
+    """
+    ddex = {}
+    new_files = 0
+    dasc = scanfile(dfile,mforce=mforce,nochecksum=nochecksum)
+    if dasc:
+        ddex[dfile] = dasc
+        new_files += 1
+
+    return (new_files,ddex)
+
+
+def scanfile(rfile,ovrx=False,mforce=False,nochecksum=False):
+    """
+    Examine file: obtain filesystem stats, checksum, ownership; file/path are parsed
+    and episode number, season, and series title extracted; file examined with
+    mediainfo and container, video, audio, subtitle track info, and chapter data extracted
+    """
+    dasc = {}
+
+    # get file parts
+    xvreal = rfile
+    tdir,xv = os.path.split(xvreal)
+    xvbase,xvext = os.path.splitext(xv)
+
+    # get base & parent dir names
+    tdir_base = os.path.split(tdir)[1]
+    tdir_parent = os.path.split(os.path.split(tdir)[0])[1]
+
+    logthis("Examining file:",suffix=xv,loglevel=LL.INFO)
+
+    # Get file path information
+    dasc['dpath'] = { 'base': tdir_base, 'parent': tdir_parent, 'full': tdir }
+    dasc['fpath'] = { 'real': xvreal, 'base': xvbase, 'file': xv, 'ext': xvext.replace('.','') }
+
+    # Stat, Extended Attribs, Ownership
+    dasc['stat'] = util.dstat(xvreal)
+    dasc['owner'] = { 'user': util.getuser(dasc['stat']['uid']), 'group': util.getgroup(dasc['stat']['gid']) }
+    # TODO: get xattribs
+
+    # Modification key (MD5 of inode number + mtime + filesize)
+    mkey_id = util.getmkey(dasc['stat'])
+    dasc['mkey_id'] = mkey_id
+
+    # Determine file status (new, unchanged, or file unchanged but moved/renamed)
+    xzist = mdb.mkey_match(mkey_id,xvreal)
+    if xzist == MCMP.RENAMED:
+        xstatus = DSTS.RENAMED
+    elif xzist == MCMP.NOCHG:
+        xstatus = DSTS.UNCHANGED
+    else:
+        xstatus = DSTS.NEW
+
+    dasc['status'] = xstatus
+
+    # Check status and carry on as needed
+    if xstatus == DSTS.UNCHANGED:
+        logthis("File unchanged:",suffix=xv,loglevel=LL.INFO)
+        if mforce:
+            logthis("File unchanged, but scan forced. Flag --mforce in effect.",loglevel=LL.WARNING)
+        else:
+            return False
+
+    # Caclulate checksums
+    if not nochecksum:
+        logthis("Calculating checksum...",loglevel=LL.INFO)
+        dasc['checksum'] = util.checksum(xvreal)
+
+    # Get mediainfo
+    dasc['mediainfo'] = util.mediainfo(xvreal)
+
+    # Determine series information from path and filename
+    dasc['fparse'],dasc['tdex_id'] = parse_episode_filename(dasc,ovrx)
+
+    return dasc
+
+
+def parse_episode_filename(dasc,ovrx=False,single=False,longep=False):
     """
     Determines series name, season, episode, and special release data from
     episode filenames and directory path. Outputs the data as the 'fparse' array.
     """
     fparse = { 'series': None, 'season': None, 'episode': None, 'special': None }
+    tdex_id = None
     dval = dasc['fpath']['base']
 
     # Regex matching rounds
     for rgx in fregex:
+        logthis("Trying regex:",suffix=rgx,loglevel=LL.DEBUG2)
         mm = re.search(rgx, dval, re.I)
         if mm:
             mm = mm.groupdict()
@@ -243,22 +284,27 @@ def parse_episode_filename(dasc,ovrx,single=False,longep=False):
             if special: special = special.strip()
 
             # Set overrides
-            if ovrx.has_key('season'):
-                snum = int(ovrx['season'])
-                logthis("Season set by override. Season:",suffix=snum,loglevel=LL.VERBOSE)
+            if ovrx:
+                if ovrx.has_key('season'):
+                    snum = int(ovrx['season'])
+                    logthis("Season set by override. Season:",suffix=snum,loglevel=LL.VERBOSE)
 
-            if ovrx.has_key('series_name'):
-                sser = ovrx['series_name']
-                logthis("Series name set by override. Series:",suffix=sser,loglevel=LL.VERBOSE)
+                if ovrx.has_key('series_name'):
+                    sser = ovrx['series_name']
+                    logthis("Series name set by override. Series:",suffix=sser,loglevel=LL.VERBOSE)
 
             logthis("Matched [%s] with regex:" % (dval),suffix=rgx,loglevel=LL.DEBUG)
             logthis("> Ser[%s] Se#[%s] Ep#[%s] Special[%s]" % (sser,snum,epnum,special),loglevel=LL.DEBUG)
 
+            # Build output fparse array
             fparse = { 'series': sser, 'season': int(snum), 'episode': int(epnum), 'special': special }
-            # TODO: tdex_id = series_add()
+
+            # Add series to tdex
+            tdex_id = mdb.series_add(sser,ovrx)
+
             break
 
-    return fparse
+    return (fparse, tdex_id)
 
 
 def filter_fname(fname):

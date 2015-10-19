@@ -36,6 +36,8 @@ class MCMP:
 
 # RCData store
 rcdata = {}
+# TDex store
+tdex = {}
 
 def mkey_match(mkid,mkreal):
 	"""
@@ -48,3 +50,31 @@ def mkey_match(mkid,mkreal):
 		return MCMP.NOCHG
 	else:
 		return MCMP.RENAMED
+
+
+def series_add(sname,ovrx=False):
+	"""
+	Add series to tdex
+	"""
+	snamex = normalize(sname)
+
+	if tdex.has_key(snamex):
+		logthis("inc count for series:",suffix=snamex,loglevel=LL.DEBUG)
+		tdex[snamex]['count'] += 1
+	else:
+		logthis("New series found:",suffix=snamex,loglevel=LL.DEBUG)
+		tdex[snamex] = { 'title': sname, 'count': 1 }
+		if ovrx:
+			if ovrx.has_key('tvdb_id'): tdex[snamex]['tvdb_id'] = ovrx['tvdb_id']
+			if ovrx.has_key('mal_id'):  tdex[snamex]['mal_id'] = ovrx['mal_id']
+
+	return snamex
+
+
+def normalize(xname):
+	"""
+	Normalize input string for use as a tdex_id
+	"""
+	nrgx = u'[\'`\-\?!%&\*@\(\)#:,\.\/\\;\+=\[\]\{\}\$\<\>]'
+	urgx = u'[ ★☆]'
+	return re.sub(urgx,'_',re.sub(nrgx,'', xname)).lower().strip()
