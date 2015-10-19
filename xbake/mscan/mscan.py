@@ -178,7 +178,7 @@ def enumdir(dpath,dreflinks=True,mforce=False,nochecksum=False):
 
             # Add filedata to ddex, new_files++, and move on to the next one
             ddex[xv] = dasc
-            new_files += 1git
+            new_files += 1
 
     # Enumeration complete
     print("\nOutput:\n%s\n" % (json.dumps(ddex,indent=4,separators=(',', ': '))))
