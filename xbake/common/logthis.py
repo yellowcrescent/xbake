@@ -22,6 +22,7 @@ import inspect
 import logging
 import logging.handlers
 import signal
+import json
 
 class C:
     """ANSI Colors"""
@@ -167,3 +168,6 @@ def failwith(etype,errmsg):
 
 def exceptionHandler(exception_type, exception, traceback):
     print "%s: %s" % (exception_type.__name__, exception)
+
+def print_r(ind):
+    return json.dumps(ind,indent=4,separators=(',', ': '))

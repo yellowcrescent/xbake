@@ -42,8 +42,8 @@ from xbake.mscan import mscan
 class xsetup:
     """Contains version information and globals"""
     ## Version info
-    version = "0.10.4"
-    vdate   = "18 Oct 2015"
+    version = "0.10.6"
+    vdate   = "20 Oct 2015"
 
     config   =  None
     lconfig  =  None
@@ -97,12 +97,12 @@ class xsetup:
                         'mforce': False,
                         'nochecksum': False
                     },
-                    'thetvdb': {
+                    'tvdb': {
                         'mirror': "http://thetvdb.com",
                         'imgbase': "http://thetvdb.com/banners",
                         'apikey': False
                     },
-                    'myanimelist': {
+                    'mal': {
                         'user': False,
                         'password': False
                     },
@@ -236,4 +236,4 @@ if __name__ == '__main__':
     if xsetup.config['run']['mode'] == "xcode":
         xcode.run(xsetup.config['run']['infile'],xsetup.config['run']['outfile'],xsetup.config['vid']['vername'])
     elif xsetup.config['run']['mode'] == "scan":
-        mscan.run(xsetup.config['run']['infile'])
+        mscan.run(xsetup.config['run']['infile'],xsetup.config['run']['outfile'])

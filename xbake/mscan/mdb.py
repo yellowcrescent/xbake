@@ -6,7 +6,7 @@
 # XBake: Meta DB
 #
 # @author   J. Hipps <jacob@ycnrg.org>
-# @repo     https://bitbucket.org/yellowcrescent/yc_cpx
+# @repo     https://bitbucket.org/yellowcrescent/yc_xbake
 #
 # Copyright (c) 2015 J. Hipps / Neo-Retro Group
 #
@@ -14,6 +14,7 @@
 #
 ###############################################################################
 
+import __main__
 import sys
 import os
 import re
@@ -29,13 +30,15 @@ from xbake.common.logthis import logthis
 from xbake.common.logthis import ER
 from xbake.common.logthis import failwith
 
+from xbake.mscan import scrapers
+
 class MCMP:
 	NOMATCH = 0
 	RENAMED = 1
 	NOCHG   = 2
 
 # RCData store
-rcdata = {}
+rcdata = { 'files': {}, 'series': {} }
 # TDex store
 tdex = {}
 
@@ -43,13 +46,45 @@ def mkey_match(mkid,mkreal):
 	"""
 	Check against MDB for matches
 	"""
-	dxm = rcdata.get(mkid,False)
+	dxm = rcdata['files'].get(mkid,False)
 	if dxm is False:
 		return MCMP.NOMATCH
 	elif unicode(dxm) == unicode(mkreal):
 		return MCMP.NOCHG
 	else:
 		return MCMP.RENAMED
+
+
+def series_scrape():
+	"""
+	Scrape info for all series in tdex
+	"""
+	cscraper = __main__.xsetup.config['scan']['scraper']
+	show_count = len(tdex)
+
+	if show_count < 1:
+		logthis("No new shows to scrape. Aborting.",loglevel=LL.VERBOSE)
+		return 0
+
+	logthis("** Scraping for series info for %s shows" % (show_count),loglevel=LL.INFO)
+
+	# Iterate through tdex and scrape for series info
+	for xsea,xsdat in tdex.iteritems():
+		# Check if series data already exists
+		if rcdata['series'].get(xsea,None):
+			logthis("Series already exists in database. Skipping:",suffix=xsdat,loglevel=LL.INFO)
+			del(tdex[xsea])
+			show_count -= 1
+			continue
+		# Execute chosen scraper
+		if cscraper == 'tvdb':
+			scrapers.tvdb(xsea,tdex)
+		elif cscraper == 'mal':
+			scrapers.mal(xsea,tdex)
+		else:
+			failwith(ER.NOTIMPL, "Scraper [%s] not implemented. Unable to continue. Aborting." % (cscraper))
+
+	return show_count
 
 
 def series_add(sname,ovrx=False):
@@ -78,3 +113,6 @@ def normalize(xname):
 	nrgx = u'[\'`\-\?!%&\*@\(\)#:,\.\/\\;\+=\[\]\{\}\$\<\>]'
 	urgx = u'[ ★☆]'
 	return re.sub(urgx,'_',re.sub(nrgx,'', xname)).lower().strip()
+
+def get_tdex():
+	return tdex

@@ -6,7 +6,7 @@
 # XBake: Media scanner
 #
 # @author   J. Hipps <jacob@ycnrg.org>
-# @repo     https://bitbucket.org/yellowcrescent/yc_cpx
+# @repo     https://bitbucket.org/yellowcrescent/yc_xbake
 #
 # Copyright (c) 2015 J. Hipps / Neo-Retro Group
 #
@@ -21,6 +21,7 @@ import re
 import json
 import signal
 import time
+import socket
 import subprocess
 import distance
 
@@ -30,6 +31,7 @@ from xbake.common.logthis import LL
 from xbake.common.logthis import logthis
 from xbake.common.logthis import ER
 from xbake.common.logthis import failwith
+from xbake.common.logthis import print_r
 
 from xbake.xcode import ffmpeg
 from xbake.mscan import util
@@ -42,6 +44,12 @@ class DSTS:
     NEW = 'new'
     UNCHANGED = 'unchanged'
     RENAMED = 'renamed'
+
+class CONM:
+    FILE    = 1
+    MLOCAL  = 2
+    MREMOTE = 3
+    APIREM  = 4
 
 # File match regexes
 fregex = [
@@ -61,7 +69,7 @@ fregex = [
 # File extension filter
 fext = re.compile('\.(avi|mkv|mpg|mpeg|wmv|vp8|ogm|mp4|mpv)',re.I)
 
-def run(infile,dreflinks=True,**kwargs):
+def run(infile,outfile=False,conmode=CONM.FILE,dreflinks=True,**kwargs):
     """
     Implements --scan mode
     """
@@ -79,16 +87,47 @@ def run(infile,dreflinks=True,**kwargs):
         elif not conf['run']['single'] and not os.path.isdir(infile):
             failwith(ER.OPT_BAD, "file [%s] is not a directory; use --single mode if scanning only one file" % (infile))
 
+    # Examine and enumerate files
     if conf['run']['single']:
         new_files,flist = scan_single(infile,conf['scan']['mforce'],conf['scan']['nochecksum'])
     else:
         new_files,flist = scan_dir(infile,dreflinks,conf['scan']['mforce'],conf['scan']['nochecksum'])
 
-    # XXX-DEBUG
-    print("\nOutput:\n%s\n" % (json.dumps(flist,indent=4,separators=(',', ': '))))
+    # Scrape for series information
+    if new_files > 0:
+        mdb.series_scrape()
+
+    # Build host data
+    hdata = {
+                'hostname': socket.getfqdn(),
+                'tstamp': time.time(),
+                'duration': 0, # FIXME
+                'topmost': os.path.realpath(infile),
+                'command': ' '.join(sys.argv),
+                'version': __main__.xsetup.version
+            }
+
+    # Build main output structure
+    odata = {
+                'scan': hdata,
+                'files': flist,
+                'series': mdb.get_tdex()
+            }
 
     # Connect to Mongo
     #monjer = db.mongo(conf['mongo'])
+
+    # If no file defined, or '-', write to stdout
+    if not outfile or outfile == '-':
+        outfile = '/dev/stdout'
+
+    try:
+        fo = open(outfile,"w")
+        fo.write(json.dumps(odata,indent=4,separators=(',', ': ')))
+        fo.close()
+    except:
+        logthis("Failed to write data to outfile:",suffix=outfile,loglevel=LL.ERROR)
+        failwith(ER.OPT_BAD, "Unable to write to outfile. Aborting.")
 
     logthis("*** Scanning task completed successfully.",loglevel=LL.INFO)
 

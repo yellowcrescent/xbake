@@ -6,7 +6,7 @@
 # XBake: RCFile functions
 #
 # @author   J. Hipps <jacob@ycnrg.org>
-# @repo     https://bitbucket.org/yellowcrescent/yc_cpx
+# @repo     https://bitbucket.org/yellowcrescent/yc_xbake
 #
 # Copyright (c) 2015 J. Hipps / Neo-Retro Group
 #
