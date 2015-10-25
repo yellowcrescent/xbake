@@ -152,7 +152,7 @@ def tvdb_process(indata):
 
 	# Get attributes
 	txc['ctitle'] = iser.get('SeriesName',None)
-	txc['xref']['tvdb'] = iser.get('id', None)
+	txc['xrefs']['tvdb'] = iser.get('id', None)
 	txc['xrefs']['imdb'] = iser.get('IMDB_ID',None)
 	txc['lastupdated'] = iser.get('lastupdated',int(time.time()))
 	txc['tv']['network'] = iser.get('Network',None)
@@ -171,7 +171,7 @@ def tvdb_process(indata):
 	bandefs['poster'] = iser.get('poster',None)
 
 	# Get Artwork
-	txc['artwork'] = tvdb_get_artwork(txc['xref']['tvdb'], bandefs)
+	txc['artwork'] = tvdb_get_artwork(txc['xrefs']['tvdb'], bandefs)
 
 	# Add Episode information
 	txc['episodes'] = indata.get('Episode',[])

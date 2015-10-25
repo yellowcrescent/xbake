@@ -229,15 +229,15 @@ def transcode(infile,outfile=None):
 
         # Parse run.bake option for MKV subtitle track number (zero-based; eg. mkvmerge compatible)
         # If run.bake is 'auto' or set to True, use whichever track is marked as default
-        if conf['run']['bake'].lower() == 'auto':
+        if conf['xcode']['subid'].lower() == 'auto':
             subset = True
-        elif conf['run']['bake'] is True:
+        elif conf['xcode']['subid'] is True:
             subset = True
         else:
             try:
-                subset = int(conf['run']['bake'])
+                subset = int(conf['xcode']['subid'])
             except ValueError as e:
-                logthis("Unable to parse track number for run.bake (--bake) option:",suffix=e,loglevel=LL.ERROR)
+                logthis("Unable to parse track number for xcode.subid (--subid) option:",suffix=e,loglevel=LL.ERROR)
                 logthis("Using whichever track is marked as default",loglevel=LL.WARNING)
                 subset = True
 

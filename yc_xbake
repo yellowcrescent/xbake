@@ -39,6 +39,8 @@ from xbake.xcode import ffmpeg
 from xbake.xcode import xcode
 from xbake.mscan import mscan
 
+oparser = None
+
 class xsetup:
     """Contains version information and globals"""
     ## Version info
@@ -53,7 +55,7 @@ class xsetup:
                         'infile': None,
                         'outfile': None,
                         'id': None,
-                        'bake': None,
+                        'bake': False,
                         'vscap': None,
                         'single': False
                     },
@@ -82,6 +84,7 @@ class xsetup:
                     },
                     'xcode': {
                         'subtype': "ass",
+                        'subid': "auto",
                         'abr': 128,
                         'downmix': 'auto',
                         'acopy': 'auto',
@@ -95,7 +98,8 @@ class xsetup:
                     'scan': {
                         'scraper': "tvdb",
                         'mforce': False,
-                        'nochecksum': False
+                        'nochecksum': False,
+                        'savechecksum': True
                     },
                     'tvdb': {
                         'mirror': "http://thetvdb.com",
@@ -127,6 +131,7 @@ def parse_cli():
     """
     Parse command-line options
     """
+    global oparser
     oparser = optparse.OptionParser(usage="%prog <--xcode|--scan|--ssonly> [options] -i INFILE [-o OUTFILE]",version=xsetup.version+" ("+xsetup.vdate+")")
 
     # General options
@@ -145,20 +150,22 @@ def parse_cli():
     opg_scan = optparse.OptionGroup(oparser, "Scanning", "Options for media scanner")
     opg_scan.add_option('-S','--single',action="store_true",dest="run.single",default=False,help="Single-file Mode")
     opg_scan.add_option('-X','--nosend',action="store_true",dest="scan.nosend",default=False,help="Disable sending data to remote server")
-    opg_scan.add_option('--scraper',action="store",dest="scan.scraper",default=False,metavar="ID",help="Choose scraper to use [tvdb,mal,ann] (default=%default)")
+    opg_scan.add_option('--scraper',action="store",dest="scan.scraper",default=False,metavar="ID",help="Choose scraper to use [tvdb,mal,ann] (default=tvdb)")
     opg_scan.add_option('--pretty',action="store_true",dest="scan.pretty",default=False,help="Pretty-print JSON output")
     opg_scan.add_option('-Z','--nochecksum',action="store_true",dest="scan.nochecksum",default=False,help="Disable checksum calculation during file scanning")
+    opg_scan.add_option('--nosave',action="store_false",dest="scan.savechecksum",default=False,help="Do not save checksum results in file extended attributes")
     opg_scan.add_option('--mforce',action="store_true",dest="scan.mforce",default=False,help="Force rescan all files, even if no changes detected")
 
     # Transcoding options
     opg_xcode = optparse.OptionGroup(oparser, "Transcoding", "Options for transcoding video")
-    opg_xcode.add_option('--bake',action="store",dest="run.bake",default=False,metavar="SUBID",help="Bake subtitles (hardsub), specify sub track ID")
-    opg_xcode.add_option('--subtype',action="store",dest="xcode.subtype",default=False,metavar="TYPE",help="Specify subtitle track type [ass,srt] (default=%default)")
+    opg_xcode.add_option('--bake',action="store_true",dest="run.bake",default=False,metavar="SUBID",help="Bake subtitles (hardsub)")
+    opg_xcode.add_option('--subid',action="store",dest="xcode.subid",default=False,metavar="SUBID",help="Subtitle track ID (default=auto, track marked 'default')")
+    opg_xcode.add_option('--subtype',action="store",dest="xcode.subtype",default=False,metavar="TYPE",help="Specify subtitle track type [ass,srt] (default=ass)")
     opg_xcode.add_option('-x','--scale',action="store",dest="xcode.scale",default=False,metavar="RES",help="Scale video resolution (RES=width:height)")
     opg_xcode.add_option('--anamorphic',action="store_true",dest="xcode.anamorphic",default=False,help="Perform anamorphic widescreen compensation")
-    opg_xcode.add_option('--aid',action="store",dest="xcode.aid",default=False,metavar="AID",help="Audio track ID (default is lowest-numbered track)")
-    opg_xcode.add_option('--abr',action="store",dest="xcode.abr",default=False,metavar="KBPS",help="Audio bitrate in kbps (default=%default)")
-    opg_xcode.add_option('--acopy',action="store_true",dest="xcode.acopy",default=False,help="Audio track, direct stream copy")
+    opg_xcode.add_option('--aid',action="store",dest="xcode.aid",default=False,metavar="AID",help="Audio track ID (default=auto, track marked 'default')")
+    opg_xcode.add_option('--abr',action="store",dest="xcode.abr",default=False,metavar="KBPS",help="Audio bitrate in kbps (default=128)")
+    opg_xcode.add_option('--acopy',action="store_true",dest="xcode.acopy",default=False,help="Audio track, direct stream copy (default if stream is AAC Stereo)")
     opg_xcode.add_option('--downmix',action="store_true",dest="xcode.downmix",default=False,help="Downmix audio from 5.1 to Stereo")
     opg_xcode.add_option('--flv',action="store_true",dest="xcode.flv",default=False,help="Output in FLV container")
     opg_xcode.add_option('--daignore',action="store_true",dest="xcode.daignore",default=False,help="Ignore errors when dumping attachments")
@@ -237,3 +244,5 @@ if __name__ == '__main__':
         xcode.run(xsetup.config['run']['infile'],xsetup.config['run']['outfile'],xsetup.config['vid']['vername'])
     elif xsetup.config['run']['mode'] == "scan":
         mscan.run(xsetup.config['run']['infile'],xsetup.config['run']['outfile'])
+    else:
+        oparser.print_help()

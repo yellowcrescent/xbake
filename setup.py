@@ -15,7 +15,7 @@ setup(
     packages = find_packages(),
     scripts = ['yc_xbake'],
 
-    install_requires = ['docutils>=0.3','pymongo>=3.0','redis>=2.10','pymediainfo>=1.4.0','enzyme>=0.4.1','distance>=0.1.3','requests>=2.2.1','xmltodict>=0.9.2'],
+    install_requires = ['docutils>=0.3','pymongo>=3.0','redis>=2.10','pymediainfo>=1.4.0','enzyme>=0.4.1','distance>=0.1.3','requests>=2.2.1','xmltodict>=0.9.2','xattr>=0.7.8'],
 
     package_data = {
         '': [ '*.md' ],

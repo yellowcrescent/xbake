@@ -34,6 +34,8 @@ from xbake.common.logthis import logthis
 from xbake.common.logthis import ER
 from xbake.common.logthis import failwith
 
+from xbake.common import fsutil
+
 rhpath = '/usr/bin/rhash'
 
 def md5sum(fname):

@@ -36,6 +36,7 @@ from xbake.common.logthis import print_r
 from xbake.xcode import ffmpeg
 from xbake.mscan import util
 from xbake.common import db
+from xbake.common import fsutil
 
 from xbake.mscan import mdb
 from xbake.mscan.mdb import MCMP
@@ -89,9 +90,9 @@ def run(infile,outfile=False,conmode=CONM.FILE,dreflinks=True,**kwargs):
 
     # Examine and enumerate files
     if conf['run']['single']:
-        new_files,flist = scan_single(infile,conf['scan']['mforce'],conf['scan']['nochecksum'])
+        new_files,flist = scan_single(infile,conf['scan']['mforce'],conf['scan']['nochecksum'],conf['scan']['savechecksum'])
     else:
-        new_files,flist = scan_dir(infile,dreflinks,conf['scan']['mforce'],conf['scan']['nochecksum'])
+        new_files,flist = scan_dir(infile,dreflinks,conf['scan']['mforce'],conf['scan']['nochecksum'],conf['scan']['savechecksum'])
 
     # Scrape for series information
     if new_files > 0:
@@ -132,7 +133,7 @@ def run(infile,outfile=False,conmode=CONM.FILE,dreflinks=True,**kwargs):
     logthis("*** Scanning task completed successfully.",loglevel=LL.INFO)
 
 
-def scan_dir(dpath,dreflinks=True,mforce=False,nochecksum=False):
+def scan_dir(dpath,dreflinks=True,mforce=False,nochecksum=False,savechecksum=True):
     """
     Scan a directory recursively; follows symlinks by default
     """
@@ -144,9 +145,13 @@ def scan_dir(dpath,dreflinks=True,mforce=False,nochecksum=False):
         # get base & parent dir names
         tdir_base = os.path.split(tdir)[1]
         tdir_parent = os.path.split(os.path.split(tdir)[0])[1]
+        ovrx = {}
+
+        # Get xattribs
+        ovrx = parse_xattr_overrides(tdir)
 
         # Parse overrides for this directory
-        ovrx = parse_overrides(tdir)
+        ovrx.update(parse_overrides(tdir))
 
         logthis("*** Scanning files in directory:",suffix=tdir,loglevel=LL.INFO)
 
@@ -183,13 +188,13 @@ def scan_dir(dpath,dreflinks=True,mforce=False,nochecksum=False):
     return (new_files,ddex)
 
 
-def scan_single(dfile,mforce=False,nochecksum=False):
+def scan_single(dfile,mforce=False,nochecksum=False,savechecksum=True):
     """
     Scan a single media file
     """
     ddex = {}
     new_files = 0
-    dasc = scanfile(dfile,mforce=mforce,nochecksum=nochecksum)
+    dasc = scanfile(dfile,mforce=mforce,nochecksum=nochecksum,savechecksum=savechecksum)
     if dasc:
         ddex[dfile] = dasc
         new_files += 1
@@ -197,7 +202,7 @@ def scan_single(dfile,mforce=False,nochecksum=False):
     return (new_files,ddex)
 
 
-def scanfile(rfile,ovrx=False,mforce=False,nochecksum=False):
+def scanfile(rfile,ovrx={},mforce=False,nochecksum=False,savechecksum=True):
     """
     Examine file: obtain filesystem stats, checksum, ownership; file/path are parsed
     and episode number, season, and series title extracted; file examined with
@@ -215,6 +220,13 @@ def scanfile(rfile,ovrx=False,mforce=False,nochecksum=False):
     tdir_parent = os.path.split(os.path.split(tdir)[0])[1]
 
     logthis("Examining file:",suffix=xv,loglevel=LL.INFO)
+
+    # Get xattribs
+    fovr = ovrx
+    fovr.update(parse_xattr_overrides(xvreal))
+    if fovr.has_key('ignore'):
+        logthis("File has 'ignore' flag set via override; skipping",loglevel=LL.INFO)
+        return False
 
     # Get file path information
     dasc['dpath'] = { 'base': tdir_base, 'parent': tdir_parent, 'full': tdir }
@@ -248,21 +260,27 @@ def scanfile(rfile,ovrx=False,mforce=False,nochecksum=False):
         else:
             return False
 
-    # Caclulate checksums
-    if not nochecksum:
-        logthis("Calculating checksum...",loglevel=LL.INFO)
-        dasc['checksum'] = util.checksum(xvreal)
+    # Retrieve or caclulate checksums
+    if fovr.has_key('md5') and fovr.has_key('ed2k') and fovr.has_key('crc32'):
+        dasc['checksum'] = { 'md5': fovr['md5'], 'ed2k': fovr['ed2k'], 'crc32': fovr['crc32'] }
+        logthis("Using checksum information from extended file attributes",loglevel=LL.VERBOSE)
+    else:
+        if not nochecksum:
+            logthis("Calculating checksum...",loglevel=LL.INFO)
+            dasc['checksum'] = util.checksum(xvreal)
+            if savechecksum:
+                save_checksums(xvreal, dasc['checksum'])
 
     # Get mediainfo
     dasc['mediainfo'] = util.mediainfo(xvreal)
 
     # Determine series information from path and filename
-    dasc['fparse'],dasc['tdex_id'] = parse_episode_filename(dasc,ovrx)
+    dasc['fparse'],dasc['tdex_id'] = parse_episode_filename(dasc,fovr)
 
     return dasc
 
 
-def parse_episode_filename(dasc,ovrx=False,single=False,longep=False):
+def parse_episode_filename(dasc,ovrx={},single=False,longep=False):
     """
     Determines series name, season, episode, and special release data from
     episode filenames and directory path. Outputs the data as the 'fparse' array.
@@ -372,6 +390,47 @@ def filter_fname(fname):
     return fname
 
 
+def save_checksums(fname,chksums):
+    """
+    Save checksums to xattribs
+    """
+    ox = {
+            'checksum.md5':   chksums.get('md5',''),
+            'checksum.ed2k':  chksums.get('ed2k',''),
+            'checksum.crc32': chksums.get('crc32','')
+         }
+    logthis("Setting checksum xattribs:",suffix=ox,loglevel=LL.DEBUG)
+    fsutil.xattr_set(fname, ox)
+
+
+xaov_map =  {
+                'media.seriesname': "series_name",
+                'media.season':     "season",
+                'media.episode':    "episode",
+                'media.xref.tvdb':  "tvdb_id",
+                'media.xref.mal':   "mal_id",
+                'checksum.md5':     "md5",
+                'checksum.ed2k':    "ed2k",
+                'checksum.crc32':   "crc32",
+                'checksum.sha1':    "sha1",
+                'xbake.ignore':     "ignore"
+            }
+
+def parse_xattr_overrides(xpath):
+    """
+    Parse overrides from extended file attributes
+    """
+    xrides = {}
+    xatr = fsutil.xattr_get(xpath)
+
+    for xk,xv in xatr.iteritems():
+        if xaov_map.has_key(xk):
+            logthis("Got override from xattrib [user.%s]: %s ->" % (xk,xaov_map[xk]),suffix=xv,loglevel=LL.VERBOSE)
+            xrides[xaov_map[xk]] = xv
+
+    return xrides
+
+
 def parse_overrides(xpath):
     """
     Parse overrides file (./.xbake)
@@ -390,14 +449,14 @@ def parse_overrides(xpath):
         except JSONDecodeError as e:
             logthis("Failed to parse JSON from overrides file:",suffix=xfile,loglevel=LL.ERROR)
             logthis("Parse error:",suffix=e,loglevel=LL.ERROR)
-            xrides = False
+            xrides = {}
         except e:
             logthis("Failed to parse JSON from overrides file:",suffix=xfile,loglevel=LL.ERROR)
             logthis("Other error:",suffix=e,loglevel=LL.ERROR)
-            xrides = False
+            xrides = {}
     else:
         logthis("No overrides for this directory. File does not exist:",suffix=xfile,loglevel=LL.DEBUG)
-        xrides = False
+        xrides = {}
     return xrides
 
 
