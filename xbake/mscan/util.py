@@ -104,12 +104,13 @@ class MIP:
     FLOAT = 4
     BOOL = 8
     DATE = 16
+    STRCOPY = 32
     LOWER = 256
     DIV1000 = 512
 
 milut =  {
             'id': MIP.COPY,
-            'unique_id': MIP.COPY,
+            'unique_id': MIP.STRCOPY,
             'format': MIP.COPY|MIP.LOWER,
             'format_profile': MIP.COPY,
             'codec_id': MIP.COPY,
@@ -187,6 +188,8 @@ def mediainfo(fname):
                 # exec opcode
                 if tcmd & MIP.COPY:
                     tblock[tname] = tval
+                elif tcmd & MIP.STRCOPY:
+                    tblock[tname] = str(tval)
                 elif tcmd & MIP.INT:
                     tblock[tname] = int(tval)
                 elif tcmd & MIP.FLOAT:

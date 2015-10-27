@@ -154,15 +154,15 @@ def tvdb_process(indata):
 	txc['ctitle'] = iser.get('SeriesName',None)
 	txc['xrefs']['tvdb'] = iser.get('id', None)
 	txc['xrefs']['imdb'] = iser.get('IMDB_ID',None)
-	txc['lastupdated'] = iser.get('lastupdated',int(time.time()))
+	txc['lastupdated'] = long(iser.get('lastupdated',time.time()))
 	txc['tv']['network'] = iser.get('Network',None)
 	txc['tv']['dayslot'] = iser.get('Airs_DayOfWeek',None)
 	txc['tv']['timeslot'] = iser.get('Airs_Time',None)
-	txc['tv']['debut'] = iser.get('FirstAired',None)
+	txc['tv']['debut'] = date2time(iser.get('FirstAired',None))
 	txc['synopsis']['tvdb'] = iser.get('Overview',None)
 	txc['status'] = iser.get('Status','unknown').lower()
 
-	txc['fetched'] = int(time.time())
+	txc['fetched'] = long(time.time())
 
 	# Get artwork defaults
 	bandefs = {}
@@ -176,7 +176,7 @@ def tvdb_process(indata):
 	# Add Episode information
 	txc['episodes'] = indata.get('Episode',[])
 
-	logthis("Series metadata set. Artwork: %d banners / %d fanart / %d posters" % (len(txc['artwork']['banners']),len(txc['artwork']['fanart']),len(txc['artwork']['poster'])),loglevel=LL.VERBOSE)
+	logthis("Series metadata set.",loglevel=LL.VERBOSE)
 
 	return txc
 
@@ -267,3 +267,14 @@ def normalize(xname):
 	nrgx = u'[\'`\-\?!%&\*@\(\)#:,\.\/\\;\+=\[\]\{\}\$\<\>]'
 	urgx = u'[ ★☆]'
 	return re.sub(urgx,'_',re.sub(nrgx,'', xname)).lower().strip()
+
+
+def date2time(dstr,fstr="%Y-%m-%d"):
+	"""
+	Convert date string to integer UNIX epoch time
+	"""
+	try:
+		return long(time.mktime(time.strptime(dstr,fstr)))
+	except e:
+		logthis("strptime() conversion failed:",suffix=e,loglevel=LL.VERBOSE)
+		return None

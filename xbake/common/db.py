@@ -66,6 +66,12 @@ class mongo:
         except Exception as e:
             logthis("Failed to update document(s) in Mongo --",loglevel=LL.ERROR,suffix=e)
 
+    def upsert(self, collection, monid, indata):
+        try:
+            self.xcur[collection].update({'_id': monid}, indata, upsert=True)
+        except Exception as e:
+            logthis("Failed to upsert document in Mongo --",loglevel=LL.ERROR,suffix=e)
+
     def findOne(self, collection, query):
         return self.xcur[collection].find_one(query)
 

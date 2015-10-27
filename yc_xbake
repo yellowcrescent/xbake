@@ -99,7 +99,8 @@ class xsetup:
                         'scraper': "tvdb",
                         'mforce': False,
                         'nochecksum': False,
-                        'savechecksum': True
+                        'savechecksum': True,
+                        'output': None
                     },
                     'tvdb': {
                         'mirror': "http://thetvdb.com",

@@ -24,6 +24,7 @@ import time
 import socket
 import subprocess
 import distance
+from urlparse import urlparse
 
 # Logging & Error handling
 from xbake.common.logthis import C
@@ -35,6 +36,7 @@ from xbake.common.logthis import print_r
 
 from xbake.xcode import ffmpeg
 from xbake.mscan import util
+from xbake.mscan import out
 from xbake.common import db
 from xbake.common import fsutil
 
@@ -115,20 +117,31 @@ def run(infile,outfile=False,conmode=CONM.FILE,dreflinks=True,**kwargs):
                 'series': mdb.get_tdex()
             }
 
-    # Connect to Mongo
-    #monjer = db.mongo(conf['mongo'])
+    # Parse outfile
+    if not outfile:
+        outfile = conf['scan']['output']
 
     # If no file defined, or '-', write to stdout
     if not outfile or outfile == '-':
         outfile = '/dev/stdout'
 
-    try:
-        fo = open(outfile,"w")
-        fo.write(json.dumps(odata,indent=4,separators=(',', ': ')))
-        fo.close()
-    except:
-        logthis("Failed to write data to outfile:",suffix=outfile,loglevel=LL.ERROR)
-        failwith(ER.OPT_BAD, "Unable to write to outfile. Aborting.")
+    # Parse URLs
+    ofp = urlparse(outfile)
+
+    if ofp.scheme == 'mongo':
+        # Write to Mongo
+        logthis(">> Output driver: Mongo",loglevel=LL.VERBOSE)
+        cmon = conf['mongo']
+        if ofp.hostname: cmon['hostname'] = ofp.hostname
+        if ofp.port: cmon['port'] = ofp.port
+        if ofp.path:
+            cmon['database'] = ofp.path.split('/')[1]
+            if not cmon['database']: cmon['database'] = conf['mongo']['database']
+        out.to_mongo(odata,cmon)
+    else:
+        # Write to file or stdout
+        logthis(">> Output driver: File",loglevel=LL.VERBOSE)
+        out.to_file(odata,ofp.path)
 
     logthis("*** Scanning task completed successfully.",loglevel=LL.INFO)
 
