@@ -38,14 +38,15 @@ from xbake.common import rcfile
 from xbake.xcode import ffmpeg
 from xbake.xcode import xcode
 from xbake.mscan import mscan
+from xbake.srv import daemon
 
 oparser = None
 
 class xsetup:
     """Contains version information and globals"""
     ## Version info
-    version = "0.10.8"
-    vdate   = "26 Oct 2015"
+    version = "0.10.9"
+    vdate   = "02 Oct 2015"
 
     config   =  None
     lconfig  =  None
@@ -113,6 +114,13 @@ class xsetup:
                     },
                     'ffmpeg': {
                         'path': False
+                    },
+                    'srv': {
+                        'iface': "0.0.0.0",
+                        'port': 7037,
+                        'nofork': False,
+                        'debug': False,
+                        'shared_key': ''
                     }
                 }
 
@@ -146,6 +154,7 @@ def parse_cli():
     opg_mode.add_option('--xcode',action="store_const",dest="run.mode",const="xcode",default=False,help="Transcode")
     opg_mode.add_option('--scan',action="store_const",dest="run.mode",const="scan",default=False,help="Scan for & catalogue media")
     opg_mode.add_option('--ssonly',action="store_const",dest="run.mode",const="ssonly",default=False,help="Capture screenshot only")
+    opg_mode.add_option('-d','--server',action="store_const",dest="run.mode",const="srv",default=False,help="Run as a daemon (API server)")
 
     # Scanning options
     opg_scan = optparse.OptionGroup(oparser, "Scanning", "Options for media scanner")
@@ -192,6 +201,13 @@ def parse_cli():
     opg_meta.add_option('--fansub',action="store",dest="run.fansub",default=False,metavar="GROUP",help="Metadata: Fansub Group Name")
     opg_meta.add_option('--dub',action="store",dest="run.dub",default=False,metavar="LANG",help="Metadata: Dub Language")
 
+    # Daemon/Server options
+    opg_srv = optparse.OptionGroup(oparser, "Daemon", "Options that apply when XBake is running as a daemon (server mode)")
+    opg_srv.add_option('--iface',action="store",dest="srv.iface",default=False,metavar="IP",help="Interface to bind to [default: 0.0.0.0]")
+    opg_srv.add_option('--port',action="store",dest="srv.port",default=False,metavar="PORT",help="Port to listen on [default: 7037]")
+    opg_srv.add_option('--nofork',action="store_true",dest="srv.nofork",default=False,help="Don't fork (stay loaded in the foreground)")
+    opg_srv.add_option('--debug',action="store_true",dest="srv.debug",default=False,help="Enable debug mode (Flask)")
+
     # add groups to parser
     oparser.add_option_group(opg_mode)
     oparser.add_option_group(opg_scan)
@@ -199,6 +215,7 @@ def parse_cli():
     oparser.add_option_group(opg_vscap)
     oparser.add_option_group(opg_version)
     oparser.add_option_group(opg_meta)
+    oparser.add_option_group(opg_srv)
 
     options, args = oparser.parse_args(sys.argv[1:])
     vout = vars(options)
@@ -245,5 +262,7 @@ if __name__ == '__main__':
         xcode.run(xsetup.config['run']['infile'],xsetup.config['run']['outfile'],xsetup.config['vid']['vername'])
     elif xsetup.config['run']['mode'] == "scan":
         mscan.run(xsetup.config['run']['infile'],xsetup.config['run']['outfile'])
+    elif xsetup.config['run']['mode'] == "srv":
+        daemon.start(xsetup.config['srv']['iface'],xsetup.config['srv']['port'],xsetup.config['srv']['debug'])
     else:
         oparser.print_help()
