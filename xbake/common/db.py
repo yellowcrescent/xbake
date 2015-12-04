@@ -21,7 +21,7 @@ import json
 import signal
 import time
 import pymongo
-import redis
+import redis as xredis
 
 # Logging & Error handling
 from xbake.common.logthis import C
@@ -169,6 +169,27 @@ class redis:
 
     def count(self):
         return self.rcon.dbsize()
+
+    def lpop(self,qname):
+        return self.rcon.lpop(self.rprefix+":"+qname)
+
+    def lpush(self,qname):
+        return self.rcon.lpush(self.rprefix+":"+qname)
+
+    def rpop(self,qname):
+        return self.rcon.rpop(self.rprefix+":"+qname)
+
+    def rpush(self,qname):
+        return self.rcon.rpush(self.rprefix+":"+qname)
+
+    def blpop(self,qname,timeout=0):
+        return self.rcon.blpop(self.rprefix+":"+qname,timeout)
+
+    def brpop(self,qname,timeout=0):
+        return self.rcon.brpop(self.rprefix+":"+qname,timeout)
+
+    def brpoplpush(self,qsname,qdname,timeout=0):
+        return self.rcon.brpoplpush(self.rprefix+":"+qsname,self.rprefix+":"+qdname,timeout)
 
     def __del__(self):
         pass

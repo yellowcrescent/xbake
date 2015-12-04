@@ -45,7 +45,7 @@ oparser = None
 class xsetup:
     """Contains version information and globals"""
     ## Version info
-    version = "0.10.10"
+    version = "0.10.11"
     vdate   = "04 Dev 2015"
 
     config   =  None
@@ -81,7 +81,8 @@ class xsetup:
                     'redis': {
                         'host': "localhost",
                         'port': 6379,
-                        'db': 0
+                        'db': 6,
+                        'prefix': "xbake"
                     },
                     'xcode': {
                         'subtype': "ass",

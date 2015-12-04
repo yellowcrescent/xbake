@@ -20,12 +20,14 @@ import os
 import re
 import signal
 import time
+from setproctitle import setproctitle
 from flask import Flask,json,jsonify,make_response,request
 
 # Logging & Error handling
 from xbake.common.logthis import C,LL,ER,logthis,failwith,print_r
 
 from xbake.mscan import out
+from xbake.srv import queue
 
 # XBake server Flask object
 xsrv = None
@@ -38,6 +40,12 @@ def start(bind_ip="0.0.0.0",bind_port=7037,fdebug=False):
 
     # first, fork
     if not conf['srv']['nofork']: dfork()
+
+    # set process title
+    setproctitle("yc_xbake: master process (%s:%d)" % (bind_ip, bind_port))
+
+    # spawn queue runner
+    queue.start()
 
     # create flask object, and map API routes
     xsrv = Flask('xbake')

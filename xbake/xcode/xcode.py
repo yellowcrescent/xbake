@@ -124,11 +124,11 @@ def run(infile,outfile=None,vername=None,id=None,**kwargs):
             failwith(ER.OPT_BAD, "infile [%s] is not a regular file" % infile)
 
     # Get video ID (MD5 sum by default)
-    if conf['vid']['autoid']:
+    if conf['run']['id']:
+        vinfo.id = conf['run']['id']
+    elif conf['vid']['autoid']:
         vinfo.id = util.md5sum(infile)
         logthis("MD5 Checksum:",suffix=vinfo.id,loglevel=LL.INFO)
-    elif conf['run']['id']:
-        vinfo.id = conf['run']['id']
 
     # Connect to Mongo
     monjer = db.mongo(conf['mongo'])
