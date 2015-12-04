@@ -25,6 +25,8 @@ from flask import Flask,json,jsonify,make_response,request
 # Logging & Error handling
 from xbake.common.logthis import C,LL,ER,logthis,failwith,print_r
 
+from xbake.mscan import out
+
 # XBake server Flask object
 xsrv = None
 
@@ -91,6 +93,38 @@ def dresponse(objx,rcode=200):
     rx.headers['Accept'] = 'application/json'
     return rx
 
+def precheck(rheaders=False,require_ctype=True):
+    # Check for proper Content-Type
+    if require_ctype:
+        try:
+            ctype = request.headers['Content-Type']
+        except KeyError:
+            ctype = None
+        if not re.match('^(application\/json|text\/x-json)', ctype, re.I):
+            logthis("Content-Type mismatch. Not acceptable:",suffix=ctype,loglevel=LL.WARNING)
+            if rheaders: return ({ 'status': "error", 'error': "json_required", 'message': "Content-Type must be application/json" }, "417 Content Mismatch")
+            else: return False
+
+    # Check authentication
+    try:
+        wauth = request.headers['WWW-Authenticate']
+    except KeyError:
+        wauth = None
+    skey = __main__.xsetup.config['srv']['shared_key']
+    if wauth:
+        if wauth == skey:
+            logthis("Authentication passed",loglevel=LL.VERBOSE)
+            if rheaders: return ({ 'status': "ok" }, "212 Login Validated")
+            else: return True
+        else:
+            logthis("Authentication failed; invalid credentials",loglevel=LL.WARNING)
+            if rheaders: return ({ 'status': "error", 'error': "auth_fail", 'message': "Authentication failed" }, "401 Unauthorized")
+            else: return False
+    else:
+        logthis("Authentication failed; WWW-Authenticate header missing from request",loglevel=LL.WARNING)
+        if rheaders: return ({ 'status': "error", 'error': "www_authenticate_header_missing", 'message': "Must include WWW-Authenticate header" }, "400 Bad Request")
+        else: return False
+
 def route_root():
     rinfo = {
                 'app': "XBake",
@@ -104,23 +138,22 @@ def route_root():
     return dresponse(rinfo)
 
 def route_auth():
-    try:
-        wauth = request.headers['WWW-Authenticate']
-    except KeyError:
-        wauth = None
-    skey = __main__.xsetup.config['srv']['shared_key']
-    if wauth:
-        if wauth == skey:
-            resp = dresponse({ 'status': "OK" },202)
-        else:
-            resp = dresponse({ 'status': "AUTH FAIL" },401)
-    else:
-        resp = dresponse({ 'error': "Must include WWW-Authenticate header" },400)
-
-    return resp
+    return dresponse(*precheck(rheaders=True))
 
 def route_mscan_add():
-    return dresponse(rinfo)
+    logthis(">> Received mscan_add request",loglevel=LL.VERBOSE)
+
+    if precheck():
+        # Write to Mongo
+        cmon = __main__.xsetup.config['mongo']
+        xstatus = out.to_mongo(request.json,cmon)
+        hcode = xstatus['http_status']
+        del(xstatus['http_status'])
+        resp = dresponse(xstatus,hcode)
+    else:
+        resp = dresponse(*precheck(rheaders=True))
+
+    return resp
 
 def route_mscan_last():
     return dresponse(rinfo)

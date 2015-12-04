@@ -238,7 +238,7 @@ def getxml(uribase,qget=None,qauth=None):
 	"""
 	Make HTTP request and decode XML response
 	"""
-	useragent = "Mozilla/5.0 ("+os.uname()[0]+" "+os.uname()[4]+") yc_xbake/"+__main__.xsetup.version+" (XBake Scraper - https://bitbucket.org/yellowcrescent/yc_xbake/)"
+	useragent = "Mozilla/5.0 ("+os.uname()[0]+" "+os.uname()[4]+") XBake/"+__main__.xsetup.version+" (XBake Scraper - https://bitbucket.org/yellowcrescent/yc_xbake/)"
 	rstat = { 'status': None, 'ok': False, 'answer': None }
 
 	# Set headers

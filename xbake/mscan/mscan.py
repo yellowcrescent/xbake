@@ -137,13 +137,25 @@ def run(infile,outfile=False,conmode=CONM.FILE,dreflinks=True,**kwargs):
         if ofp.path:
             cmon['database'] = ofp.path.split('/')[1]
             if not cmon['database']: cmon['database'] = conf['mongo']['database']
-        out.to_mongo(odata,cmon)
+        ostatus = out.to_mongo(odata,cmon)
+    elif ofp.scheme == 'http' or ofp.scheme == 'https':
+        # Send via HTTP(S) to a listening XBake daemon, or other web service
+        logthis(">> Output driver: HTTP/HTTPS",loglevel=LL.VERBOSE)
+        ostatus = out.to_server(odata, outfile)
     else:
         # Write to file or stdout
         logthis(">> Output driver: File",loglevel=LL.VERBOSE)
-        out.to_file(odata,ofp.path)
+        ostatus = out.to_file(odata,ofp.path)
 
-    logthis("*** Scanning task completed successfully.",loglevel=LL.INFO)
+    if ostatus['status'] == "ok":
+        logthis("*** Scanning task completed successfully.",loglevel=LL.INFO)
+        return 0
+    elif ostatus['status'] == "warning":
+        logthis("*** Scanning task completed, with warnings.",loglevel=LL.WARNING)
+        return 49
+    else:
+        logthis("*** Scanning task failed.",loglevel=LL.ERROR)
+        return 50
 
 
 def scan_dir(dpath,dreflinks=True,mforce=False,nochecksum=False,savechecksum=True):

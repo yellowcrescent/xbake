@@ -45,8 +45,8 @@ oparser = None
 class xsetup:
     """Contains version information and globals"""
     ## Version info
-    version = "0.10.9"
-    vdate   = "02 Oct 2015"
+    version = "0.10.10"
+    vdate   = "04 Dev 2015"
 
     config   =  None
     lconfig  =  None
@@ -141,7 +141,7 @@ def parse_cli():
     Parse command-line options
     """
     global oparser
-    oparser = optparse.OptionParser(usage="%prog <--xcode|--scan|--ssonly> [options] -i INFILE [-o OUTFILE]",version=xsetup.version+" ("+xsetup.vdate+")")
+    oparser = optparse.OptionParser(usage="%prog <--xcode|--scan|--ssonly|--server> [options] -i INFILE [-o OUTFILE]",version=xsetup.version+" ("+xsetup.vdate+")")
 
     # General options
     oparser.add_option('-v', '--verbose', action="count", dest="run.verbose", help="Increase logging verbosity (-v Verbose, -vv Debug, -vvv Debug2)")
@@ -258,11 +258,16 @@ if __name__ == '__main__':
     if xsetup.config['core']['loglevel'] < LL.VERBOSE:
         sys.excepthook = exceptionHandler
 
+    # Set default return code to 1
+    rcode = 1
     if xsetup.config['run']['mode'] == "xcode":
-        xcode.run(xsetup.config['run']['infile'],xsetup.config['run']['outfile'],xsetup.config['vid']['vername'])
+        rcode = xcode.run(xsetup.config['run']['infile'],xsetup.config['run']['outfile'],xsetup.config['vid']['vername'])
     elif xsetup.config['run']['mode'] == "scan":
-        mscan.run(xsetup.config['run']['infile'],xsetup.config['run']['outfile'])
+        rcode = mscan.run(xsetup.config['run']['infile'],xsetup.config['run']['outfile'])
     elif xsetup.config['run']['mode'] == "srv":
         daemon.start(xsetup.config['srv']['iface'],xsetup.config['srv']['port'],xsetup.config['srv']['debug'])
     else:
         oparser.print_help()
+        rcode = 250
+
+    sys.exit(rcode)

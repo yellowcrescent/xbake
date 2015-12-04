@@ -158,6 +158,7 @@ def run(infile,outfile=None,vername=None,id=None,**kwargs):
         vdataInsert(vdata)
 
     logthis("*** Transcoding task completed successfully.",loglevel=LL.INFO)
+    return 0
 
 def sscapture(infile,offset):
     """

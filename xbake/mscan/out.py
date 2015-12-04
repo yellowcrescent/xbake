@@ -22,6 +22,7 @@ import json
 import signal
 import time
 import socket
+import requests
 
 # Logging & Error handling
 from xbake.common.logthis import C
@@ -181,11 +182,11 @@ def to_mongo(indata,moncon):
                  }
 
     if files_upserted < 1:
-        status_out['http_status'] = "224 Insufficient Data"
+        status_out['http_status'] = "216 Nothing Added"
         status_out['status'] = "warning"
         status_out['message'] = "No files were added"
     else:
-        status_out['http_status'] = "220 Success"
+        status_out['http_status'] = "201 Content Added"
         status_out['status'] = "ok"
         status_out['message'] = "Completed without errors or warnings"
 
@@ -200,10 +201,43 @@ def to_file(indata,fname):
         fo = open(fname,"w")
         fo.write(json.dumps(indata,indent=4,separators=(',', ': ')))
         fo.close()
+        xstat = { 'status': "ok" }
     except:
         logthis("Failed to write data to outfile:",suffix=fname,loglevel=LL.ERROR)
-        failwith(ER.OPT_BAD, "Unable to write to outfile. Aborting.")
+        xstat = { 'status': "error", 'message': "Failed to write data to outfile" }
 
+    return xstat
+
+
+def to_server(indata,shost):
+    """
+    Send results to listening XBake daemon
+    """
+    shared_key = __main__.xsetup.config['srv']['shared_key']
+    logthis("Server prefix:",suffix=shost,loglevel=LL.DEBUG)
+    logthis("Shared key:",suffix=shared_key,loglevel=LL.DEBUG)
+
+    # Create request
+    qurl = shost + "/api/mscan/add"
+    headset = { 'Content-Type': "application/json", 'WWW-Authenticate': shared_key, 'User-Agent': "XBake/"+__main__.xsetup.version }
+    logthis("** Sending data to",suffix=qurl,loglevel=LL.VERBOSE)
+    rq = requests.post(qurl,headers=headset,data=json.dumps(indata))
+
+    # Process response
+    if rq.status_code == 201:
+        logthis("** Data sent to remote server successfully!",suffix=str(rq.status_code)+' '+rq.reason,loglevel=LL.INFO)
+        xstat = { 'status': "ok" }
+    elif rq.status_code == 216:
+        logthis("** Server reported that no new data was added (0 new entries)",suffix=str(rq.status_code)+' '+rq.reason,loglevel=LL.WARNING)
+        xstat = { 'status': "warning", 'message': "Server reported that no new data was added (0 new entries)" }
+    elif rq.status_code == 500:
+        logthis("** Server failed while processing the request.",suffix=str(rq.status_code)+' '+rq.reason,loglevel=LL.ERROR)
+        xstat = { 'status': "error", 'message': "Server failed while processing the request" }
+    else:
+        logthis("** Server sent back an invalid response.",suffix=str(rq.status_code)+' '+rq.reason,loglevel=LL.ERROR)
+        xstat = { 'status': "error", 'message': "Server sent back an invalid response" }
+
+    return xstat
 
 def mkid_series(tdex_id,xdata):
     """
