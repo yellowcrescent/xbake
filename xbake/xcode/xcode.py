@@ -136,6 +136,8 @@ def run(infile,outfile=None,vername=None,id=None,**kwargs):
     # Build pre-transcode data
     vinfo.vername = vername
     if monjer and vinfo.id:
+        if not vinfo.vername:
+            failwith(ER.OPT_MISSING, "No version name specified. Use --vername to specify the version name. Aborting.")
         vdata = vdataBuild()
     else:
         logthis("Setting update mode to MXM.NONE",loglevel=LL.DEBUG)
@@ -265,7 +267,7 @@ def transcode(infile,outfile=None):
         # For ASS subs, dump font attachments
         if vinfo.sub.type == STYPE.ASS:
             logthis("Dumping font attachments...",loglevel=LL.INFO)
-            fontlist = ffmpeg.dumpFonts(vinfo.infile.full)
+            fontlist = ffmpeg.dumpFonts(vinfo.infile.full,conf['xcode']['fontdir'])
             subfile = "subtrack.ass"
             ffo.subs = [ 'ass=%s' % subfile ]
         elif vinfo.sub.type == STYPE.SRT:
@@ -392,7 +394,10 @@ def transcode(infile,outfile=None):
     ## Cleanup
     logthis("Removing font and subtitle files...",loglevel=LL.VERBOSE)
     os.remove(subfile)
-    for ff in fontlist: os.remove(ff)
+    if not conf['xcode']['fontsave']:
+        for ff in fontlist:
+            if conf['xcode']['fontdir']: os.remove(os.path.expanduser(conf['xcode']['fontdir']).rstrip('/') + "/" + ff)
+            else: os.remove(ff)
 
     logthis("Transcoding complete",ccode=C.GRN,loglevel=LL.INFO)
 
@@ -430,6 +435,7 @@ def vdataBuild():
     Query MongoDB and build data structures prior to transcoding
     """
     global monjer
+    conf = __main__.xsetup.config
 
     vx.fdi = monjer.findOne('files', { '_id': vinfo.id })
     if vx.fdi:
@@ -449,7 +455,7 @@ def vdataBuild():
             vx.fdi_srx = None
 
         # Check if matching video already exists
-        if monjer.findOne('videos', { '_id': vx.fdi['_id'] }):
+        if not monjer.findOne('videos', { '_id': vx.fdi['_id'] }):
             logthis("Entry does not already exist. Populating video metadata",loglevel=LL.INFO)
             vinfo.mxmode = MXM.INSERT
             # Check location
@@ -457,9 +463,8 @@ def vdataBuild():
                 # Get from running config (--vername option or vid.vername)
                 vinfo.location = conf['vid']['location']
             else:
-                # Otherwise, get first version from list
-                if vx.fdi.has_key('versions') and len(vx.fdi['versions']):
-                    vinfo.location = vx.fdi['versions'].keys()[0]
+                # Otherwise, get first location from list
+                vinfo.location = vx.fdi['location'].keys()[0]
 
             # Initialize metadata
             xvid = {
@@ -489,7 +494,8 @@ def vdataBuild():
                             'enabled': trueifset(conf['run']['bake'],typematch=True),
                             'lang': 'eng',
                             'fansub': setifset(conf['run'], 'fansub')
-                        }
+                        },
+                    'versions': {}
                    }
         else:
             # Entry already exists in db.videos

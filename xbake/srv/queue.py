@@ -240,7 +240,7 @@ def scp(src,dest):
         subprocess.check_output(['/usr/bin/scp','-B','-r',src,dest])
         return True
     except subprocess.CalledProcessError as e:
-        logthis("Error: scp returned non-zero.",suffix=e,loglevel=LL.VERBOSE)
+        logthis("Error: scp returned non-zero.",suffix=e,loglevel=LL.ERROR)
         return False
 
 def enqueue(qname,jid,fid,opts,silent=False):

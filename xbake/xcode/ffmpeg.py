@@ -25,6 +25,7 @@ import json
 import signal
 import time
 import subprocess
+import shutil
 
 # Logging & Error handling
 from xbake.common.logthis import C
@@ -131,9 +132,10 @@ def dumpFonts(vfile,moveto=None):
 
     # move fonts to another directory, if enabled
     if moveto:
+        moveto = os.path.expanduser(moveto).rstrip('/')
         curpath = os.path.realpath('.')
         for i in fontlist:
-            os.rename(os.path.realpath(i),os.path.realpath(moveto + '/' + i))
+            shutil.move(os.path.realpath(i),os.path.realpath(moveto + '/' + i))
         logthis("Moved fonts to new location:",suffix=os.path.realpath(moveto),loglevel=LL.VERBOSE)
 
     return fontlist

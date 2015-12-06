@@ -93,6 +93,7 @@ class xsetup:
                         'aid': None,
                         'srt_style': "FontName=MyriadPro-Semibold,Outline=1,Shadow=1,FontSize=24",
                         'fontdir': None,
+                        'fontsave': False,
                         'scale': None,
                         'flv': False,
                         'anamorphic': False
