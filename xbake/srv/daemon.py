@@ -44,8 +44,9 @@ def start(bind_ip="0.0.0.0",bind_port=7037,fdebug=False):
     # set process title
     setproctitle("yc_xbake: master process (%s:%d)" % (bind_ip, bind_port))
 
-    # spawn queue runner
-    queue.start()
+    # spawn queue runners
+    queue.start('xfer')
+    queue.start('xcode')
 
     # create flask object, and map API routes
     xsrv = Flask('xbake')

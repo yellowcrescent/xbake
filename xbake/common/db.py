@@ -173,14 +173,14 @@ class redis:
     def lpop(self,qname):
         return self.rcon.lpop(self.rprefix+":"+qname)
 
-    def lpush(self,qname):
-        return self.rcon.lpush(self.rprefix+":"+qname)
+    def lpush(self,qname,xval):
+        return self.rcon.lpush(self.rprefix+":"+qname,xval)
 
     def rpop(self,qname):
         return self.rcon.rpop(self.rprefix+":"+qname)
 
-    def rpush(self,qname):
-        return self.rcon.rpush(self.rprefix+":"+qname)
+    def rpush(self,qname,xval):
+        return self.rcon.rpush(self.rprefix+":"+qname,xval)
 
     def blpop(self,qname,timeout=0):
         return self.rcon.blpop(self.rprefix+":"+qname,timeout)

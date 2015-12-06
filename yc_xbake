@@ -46,7 +46,7 @@ class xsetup:
     """Contains version information and globals"""
     ## Version info
     version = "0.10.11"
-    vdate   = "04 Dev 2015"
+    vdate   = "04 Dec 2015"
 
     config   =  None
     lconfig  =  None
@@ -121,7 +121,9 @@ class xsetup:
                         'port': 7037,
                         'nofork': False,
                         'debug': False,
-                        'shared_key': ''
+                        'shared_key': '',
+                        'xfer_path': '.',
+                        'xfer_hostonly': False
                     }
                 }
 
