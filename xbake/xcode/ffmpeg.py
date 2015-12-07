@@ -78,19 +78,29 @@ def version():
     """
     verdata = subprocess.check_output([bpath.ffpath,'-version'])
     vdx = {
-            'version': re.match('^ffmpeg version ([^ ]+).*',verdata,re.I|re.S|re.M).groups()[0],
-            'date': re.match('.*^built on (.+) with.*$',verdata,re.I|re.S|re.M).groups()[0],
-            'config': re.match('.*^configuration: (.+?)$',verdata,re.I|re.M|re.S).groups()[0],
-            'libavutil': re.match('.*^libavutil\s*(.+?) \/.*$',verdata,re.I|re.S|re.M).groups()[0].replace(' ',''),
-            'libavcodec': re.match('.*^libavcodec\s*(.+?) \/.*$',verdata,re.I|re.S|re.M).groups()[0].replace(' ',''),
-            'libavformat': re.match('.*^libavformat\s*(.+?) \/.*$',verdata,re.I|re.S|re.M).groups()[0].replace(' ',''),
-            'libavdevice': re.match('.*^libavdevice\s*(.+?) \/.*$',verdata,re.I|re.S|re.M).groups()[0].replace(' ',''),
-            'libavfilter': re.match('.*^libavfilter\s*(.+?) \/.*$',verdata,re.I|re.S|re.M).groups()[0].replace(' ',''),
-            'libswscale': re.match('.*^libswscale\s*(.+?) \/.*$',verdata,re.I|re.S|re.M).groups()[0].replace(' ',''),
-            'libswresample': re.match('.*^libswresample\s*(.+?) \/.*$',verdata,re.I|re.S|re.M).groups()[0].replace(' ',''),
-            'libpostproc': re.match('.*^libpostproc\s*(.+?) \/.*$',verdata,re.I|re.S|re.M).groups()[0].replace(' ','')
+            'version': vmatch('^ffmpeg version ([^ ]+).*',verdata),
+            'date': vmatch('.*^built on (.+) with.*$',verdata),
+            'config': vmatch('.*^configuration: (.+?)$',verdata,re.I|re.M|re.S).groups()[0],
+            'libavutil': vmatch('.*^libavutil\s*(.+?) \/.*$',verdata),
+            'libavcodec': vmatch('.*^libavcodec\s*(.+?) \/.*$',verdata),
+            'libavformat': vmatch('.*^libavformat\s*(.+?) \/.*$',verdata),
+            'libavdevice': vmatch('.*^libavdevice\s*(.+?) \/.*$',verdata),
+            'libavfilter': vmatch('.*^libavfilter\s*(.+?) \/.*$',verdata),
+            'libswscale': vmatch('.*^libswscale\s*(.+?) \/.*$',verdata),
+            'libswresample': vmatch('.*^libswresample\s*(.+?) \/.*$',verdata),
+            'libpostproc': vmatch('.*^libpostproc\s*(.+?) \/.*$',verdata)
         }
     return vdx
+
+def vmatch(regex,instr,wstrip=False):
+    rrx = re.match(regex,instr,re.I|re.S|re.M)
+    if rrx:
+        if wstrip:
+            return rrx.groups()[0].replace(' ','')
+        else
+            return rrx.groups()[0]
+    else:
+        return None
 
 def run(optlist,supout=False):
     """
