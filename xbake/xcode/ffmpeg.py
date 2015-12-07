@@ -80,7 +80,7 @@ def version():
     vdx = {
             'version': vmatch('^ffmpeg version ([^ ]+).*',verdata),
             'date': vmatch('.*^built on (.+) with.*$',verdata),
-            'config': vmatch('.*^configuration: (.+?)$',verdata,re.I|re.M|re.S).groups()[0],
+            'config': vmatch('.*^configuration: (.+?)$',verdata),
             'libavutil': vmatch('.*^libavutil\s*(.+?) \/.*$',verdata),
             'libavcodec': vmatch('.*^libavcodec\s*(.+?) \/.*$',verdata),
             'libavformat': vmatch('.*^libavformat\s*(.+?) \/.*$',verdata),
@@ -97,7 +97,7 @@ def vmatch(regex,instr,wstrip=False):
     if rrx:
         if wstrip:
             return rrx.groups()[0].replace(' ','')
-        else
+        else:
             return rrx.groups()[0]
     else:
         return None
