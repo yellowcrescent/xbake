@@ -501,7 +501,7 @@ def vdataBuild():
             # Entry already exists in db.videos
             logthis("Entry already exists. Will update version or vscap information.",loglevel=LL.INFO)
             vinfo.mxmode = MXM.UPDATE
-            xvid = False
+            xvid = { 'versions': {} }
     else:
         logthis("No matching entry found in database. ID:",suffix=vinfo.id,loglevel=LL.ERROR)
         failwith(ER.NOTFOUND, "No match for VID. Will not contiue. Aborting.")

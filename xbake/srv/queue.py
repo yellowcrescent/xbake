@@ -266,7 +266,10 @@ def cb_xcode(jdata):
     logthis("xcode: Profile data:",suffix=json.dumps(profdata),loglevel=LL.DEBUG)
 
     ## Set encoding options
-    __main__.xsetup.config['xcode']['show_ffmpeg'] = __main__.xsetup.config['srv']['xcode_show_ffmpeg']
+    if __main__.xsetup.config['core']['loglevel'] > LL.VERBOSE:
+        __main__.xsetup.config['xcode']['show_ffmpeg'] = True
+    else:
+        __main__.xsetup.config['xcode']['show_ffmpeg'] = __main__.xsetup.config['srv']['xcode_show_ffmpeg']
 
     # Set File, ID, and Version info
     __main__.xsetup.config['run']['infile'] = f_in
@@ -290,7 +293,7 @@ def cb_xcode(jdata):
     # Screenshot options
     if opts.get('vscap',0):
         __main__.xsetup.config['run']['vscap'] = opts['vscap']
-    elif opts.get('vscap',0) == -1:
+    elif int(opts.get('vscap',0)) == -1:
         __main__.xsetup.config['run']['vscap'] = False
     else:
         # If no vscap offset is set, then take the 3rd chapter offset and add 5 seconds
