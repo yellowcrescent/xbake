@@ -45,8 +45,8 @@ oparser = None
 class xsetup:
     """Contains version information and globals"""
     ## Version info
-    version = "0.10.11"
-    vdate   = "04 Dec 2015"
+    version = "0.10.12"
+    vdate   = "06 Dec 2015"
 
     config   =  None
     lconfig  =  None
@@ -96,7 +96,10 @@ class xsetup:
                         'fontsave': False,
                         'scale': None,
                         'flv': False,
-                        'anamorphic': False
+                        'anamorphic': False,
+                        'crf': 20,
+                        'libx264_preset': "medium",
+                        'show_ffmpeg': True
                     },
                     'scan': {
                         'scraper': "tvdb",
@@ -124,7 +127,11 @@ class xsetup:
                         'debug': False,
                         'shared_key': '',
                         'xfer_path': '.',
-                        'xfer_hostonly': False
+                        'xfer_hostonly': False,
+                        'xcode_outpath': '.',
+                        'xcode_default_profile': None,
+                        'xcode_scale_allowance': 10,
+                        'xcode_show_ffmpeg': False
                     }
                 }
 
@@ -175,7 +182,9 @@ def parse_cli():
     opg_xcode.add_option('--bake',action="store_true",dest="run.bake",default=False,metavar="SUBID",help="Bake subtitles (hardsub)")
     opg_xcode.add_option('--subid',action="store",dest="xcode.subid",default=False,metavar="SUBID",help="Subtitle track ID (default=auto, track marked 'default')")
     opg_xcode.add_option('--subtype',action="store",dest="xcode.subtype",default=False,metavar="TYPE",help="Specify subtitle track type [ass,srt] (default=ass)")
-    opg_xcode.add_option('-x','--scale',action="store",dest="xcode.scale",default=False,metavar="RES",help="Scale video resolution (RES=width:height)")
+    opg_xcode.add_option('--scale',action="store",dest="xcode.scale",default=False,metavar="RES",help="Scale video resolution (RES=width:height)")
+    opg_xcode.add_option('--crf',action="store",dest="xcode.crf",default=False,metavar="CRF",help="x264 CRF: lower is better quality, but higher bitrate (default=20)")
+    opg_xcode.add_option('--x264preset',action="store",dest="xcode.libx264_preset",default=False,metavar="NAME",help="x264 preset; must be a valid libx264 preset (default=medium)")
     opg_xcode.add_option('--anamorphic',action="store_true",dest="xcode.anamorphic",default=False,help="Perform anamorphic widescreen compensation")
     opg_xcode.add_option('--aid',action="store",dest="xcode.aid",default=False,metavar="AID",help="Audio track ID (default=auto, track marked 'default')")
     opg_xcode.add_option('--abr',action="store",dest="xcode.abr",default=False,metavar="KBPS",help="Audio bitrate in kbps (default=128)")

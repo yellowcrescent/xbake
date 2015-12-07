@@ -29,14 +29,16 @@ from xbake.common import db
 # Logging & Error handling
 from xbake.common.logthis import C,LL,ER,logthis,failwith,print_r
 
-# MScan and other file utility imports
+# mscan, xcode, and other file utility imports
 from xbake.mscan.util import md5sum,checksum,rhash,dstat
+from xbake.xcode import xcode
 
 # Queue handler callbacks
 handlers = None
 
-# Host metrics
+# Host metrics and encode profiles
 hmetrics = None
+xprofiles = None
 
 # Redis & Mongo objects; Parent PID
 rdx = None
@@ -44,7 +46,7 @@ mdx = None
 dadpid = None
 
 def start(qname="xcode"):
-    global rdx, mdx, dadpid, handlers, hmetrics
+    global rdx, mdx, dadpid, handlers, hmetrics, xprofiles
 
     # Fork into its own process
     logthis("Forking...",loglevel=LL.DEBUG)
@@ -80,6 +82,9 @@ def start(qname="xcode"):
 
     # Get host metrics
     hmetrics = load_metrics()
+
+    # Get xcode profiles
+    xprofiles = load_profiles()
 
     # Start listener loop
     qrunner(qname)
@@ -224,16 +229,138 @@ def cb_xfer(jdata):
 
 
 def cb_xcode(jdata):
-    global mdx
+    global mdx, xprofiles
+
+    # get global options
+    outpath = os.path.expanduser(__main__.xsetup.config['srv']['xcode_outpath']).rstrip("/")
+    s_allow = int(__main__.xsetup.config['srv']['xcode_scale_allowance'])
 
     # get options from job request
     jid  = jdata['id']
     fid  = jdata['fid']
     opts = jdata['opts']
 
-    #### TESTING STUB ####
-    update_status(fid, "new")
-    return 0
+    # set profile & version
+    xprof = opts.get('profile', __main__.xsetup.config['srv']['xcode_default_profile']).lower()
+    vname = opts.get('version', xprof)
+    profdata = xprofiles.get(xprof,{})
+
+    # build file paths
+    f_in  = opts['realpath']
+    if vname:
+        f_out = outpath + "/" + vname + "/" + opts['basefile'] + ".mp4"
+    else:
+        f_out = outpath + "/" + opts['basefile'] + ".mp4"
+
+    # retrieve file entry from Mongo
+    fvid = mdx.findOne('files',{ "_id": fid })
+    oneloc = fvid['location'].keys()[0]
+    expect_file = fvid['location'][oneloc]['fpath']['file']
+
+    # Do some loggy stuff
+    logthis("xcode: JobID %s / FileID %s / Opts %s" % (jid,fid,json.dumps(opts)),loglevel=LL.VERBOSE)
+    logthis("xcode: Input file:",suffix=f_in,loglevel=LL.VERBOSE)
+    logthis("xcode: Output file:",suffix=f_out,loglevel=LL.VERBOSE)
+    logthis("xcode: Version:",suffix=vname,loglevel=LL.VERBOSE)
+    logthis("xcode: Profile:",suffix=xprof,loglevel=LL.VERBOSE)
+    logthis("xcode: Profile data:",suffix=json.dumps(profdata),loglevel=LL.DEBUG)
+
+    ## Set encoding options
+    __main__.xsetup.config['xcode']['show_ffmpeg'] = __main__.xsetup.config['srv']['xcode_show_ffmpeg']
+
+    # Set File, ID, and Version info
+    __main__.xsetup.config['run']['infile'] = f_in
+    __main__.xsetup.config['run']['outfile'] = f_out
+    __main__.xsetup.config['run']['id'] = fid
+    __main__.xsetup.config['vid']['location'] = opts['location']
+    __main__.xsetup.config['vid']['vername'] = vname
+
+    # Audio options
+    __main__.xsetup.config['xcode']['acopy'] = 'auto'
+    __main__.xsetup.config['xcode']['downmix'] = 'auto'
+    __main__.xsetup.config['xcode']['abr'] = int(profdata.get('abr',128))
+
+    # Subtitle options
+    if not opts.get('no_subs',False):
+        __main__.xsetup.config['run']['bake'] = True
+        __main__.xsetup.config['xcode']['subid'] = 'auto'
+    else:
+        __main__.xsetup.config['run']['bake'] = False
+
+    # Screenshot options
+    if opts.get('vscap',0):
+        __main__.xsetup.config['run']['vscap'] = opts['vscap']
+    elif opts.get('vscap',0) == -1:
+        __main__.xsetup.config['run']['vscap'] = False
+    else:
+        # If no vscap offset is set, then take the 3rd chapter offset and add 5 seconds
+        # If no 3rd chapter, 440 seconds? go!
+        try:
+            zoff = int(fvid['mediainfo']['menu'][2]['offset']) + 5
+        except:
+            zoff = 440
+        __main__.xsetup.config['run']['vscap'] = zoff
+
+    # Metadata options
+    if opts.get('fansub',False):
+        __main__.xsetup.config['run']['fansub'] = opts['fansub']
+    else:
+        __main__.xsetup.config['run']['fansub'] = None
+
+    ## Video options
+    __main__.xsetup.config['xcode']['crf'] = int(profdata.get('crf',__main__.xsetup.defaults['xcode']['crf']))
+
+    # Performing scaling to match profile, if necessary
+    xscale = False
+    if profdata.get('height',False):
+        # Get source size and AR
+        v_width = int(fvid['mediainfo']['video'][0].get('width',0))
+        v_height = int(fvid['mediainfo']['video'][0].get('height',0))
+        v_ar,v_iar,v_dar = get_aspect(fvid['mediainfo']['video'][0])
+
+        # calculate expected/target size
+        x_height = int(profdata['height'])
+        x_width = int(float(profdata['height']) * v_iar)
+
+        # check if we need to scale
+        if v_height < (x_height - s_allow) or v_height > (x_height + s_allow): xscale = True
+        if v_width < (x_width - s_allow) or v_width > (x_width + s_allow): xscale = True
+
+    # set scale params
+    if xscale:
+        if v_ar == profdata.get('aspect',0) and profdata.get('width',False):
+            s_width = int(profdata['width'])
+        else:
+            s_width = x_width
+        __main__.xsetup.config['xcode']['scale'] = "%d:%d" % (s_width,x_height)
+    else:
+        __main__.xsetup.config['xcode']['scale'] = None
+
+    # Transcode
+    logthis("xcode: Handing off control to xbake.xcode module for transcoding.",loglevel=LL.VERBOSE)
+    xcode.run(infile=f_in,outfile=f_out,vername=vname,id=fid)
+
+    # Check for presence of output file
+    if not os.path.exists(f_out):
+        logthis("xcode: Output file not found. Transcoding failed.",loglevel=LL.ERROR)
+        update_status(fid, "new", lerror="transcoding failed")
+        return 121
+    else:
+        logthis("xcode: Transcoding completed successfully",loglevel=LL.VERBOSE)
+        update_status(fid, "complete")
+        return 0
+
+def get_aspect(midata):
+    smap = { 1.78: "16:9", 1.5: "3:2", 1.33: "4:3", 1.25: "5:4" }
+    # get aspect ratio reported in metadata
+    iar = midata.get('display_aspect_ratio', midata.get('aspect', round(float(midata['width']) / float(midata['height']),2)))
+    if iar.count(':'):
+        iar = float(iar.split(':')[0]) / float(iar.split(':')[1])
+        dar = round(iar,2)
+    else:
+        iar = float(iar)
+        dar = round(iar,2)
+    return (smap.get(dar,str(dar)), iar, dar)
 
 def scp(src,dest):
     try:
@@ -298,3 +425,22 @@ def load_metrics():
     logthis("Host metric list:\n",suffix=print_r(mets2),loglevel=LL.DEBUG)
 
     return mets2
+
+def load_profiles():
+    # Load encoding profiles from [profiles] section of RC file
+    profs = __main__.xsetup.config.get('profiles',{})
+    oplist = {}
+    for tp in profs:
+        xlist = {}
+        try:
+            for tox in profs[tp].split(','):
+                k,v = tox.split('=')
+                xlist[k.lower()] = v
+            oplist[tp] = xlist
+        except e:
+            logthis("Failed to parse profile for",suffix=tp,loglevel=LL.ERROR)
+            logthis("Error:",suffix=e,loglevel=LL.ERROR)
+
+    logthis("Parsed xcode profiles:\n",suffix=print_r(oplist),loglevel=LL.DEBUG)
+
+    return oplist

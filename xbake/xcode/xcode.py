@@ -356,7 +356,7 @@ def transcode(infile,outfile=None):
         ffo.video = [ '-vf', ','.join(ffo.scaler + ffo.subs) ] + ffo.video
 
     ## Video & Output filename
-    ffo.video += [ '-c:v', 'libx264', '-crf', '20', '-preset:v', 'medium' ]
+    ffo.video += [ '-c:v', 'libx264', '-crf', str(conf['xcode']['crf']), '-preset:v', conf['xcode']['libx264_preset'] ]
 
     # Get output path
     if outfile and os.path.isdir(outfile):
@@ -389,7 +389,7 @@ def transcode(infile,outfile=None):
 
     ## Build ffmpeg command
     ffoptions = [ '-y', '-i', vinfo.infile.full ] + ffo.video + ffo.audio + [ vinfo.outfile.full ]
-    ffmpeg.run(ffoptions)
+    ffmpeg.run(ffoptions,(not conf['xcode']['show_ffmpeg']))
 
     ## Cleanup
     logthis("Removing font and subtitle files...",loglevel=LL.VERBOSE)

@@ -164,7 +164,7 @@ def vscap(vfile,offset,outfile):
     Capture frame at specified offset
     """
     try:
-        subprocess.check_output([bpath.ffpath,'-y','-ss',offset,'-i',vfile,'-t','1','-r','1',outfile],stderr=subprocess.STDOUT)
+        subprocess.check_output([bpath.ffpath,'-y','-ss',str(offset),'-i',vfile,'-t','1','-r','1',outfile],stderr=subprocess.STDOUT)
     except subprocess.CalledProcessError as e:
         logthis("FFmpeg returned non-zero. Frame capture failed.",loglevel=LL.WARNING)
 

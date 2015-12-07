@@ -123,6 +123,7 @@ milut =  {
             'width': MIP.COPY,
             'height': MIP.COPY,
             'display_aspect_ratio': MIP.COPY,
+            'original_display_aspect_ratio': MIP.COPY,
             'frame_rate': MIP.FLOAT,
             'color_space': MIP.COPY,
             'chroma_subsampling': MIP.COPY,
