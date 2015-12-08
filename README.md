@@ -14,10 +14,10 @@ If you haven't done so already, be sure you have a copy of the Python dev packag
     sudo apt-get install python-dev python-pip
 
 #### Dependencies: Required Software
-XBake also requires various pieces of software to perform its magic. This includes ImageMagick, MkvToolNix, MediaInfo, and WebP.
+XBake also requires various pieces of software to perform its magic. This includes rhash, ImageMagick, MkvToolNix, MediaInfo, and WebP.
 The command below also installs some dev libraries that may be required for compiling Python package dependencies.
 
-    sudo apt-get install imagemagick mkvtoolnix mediainfo webp libffi-dev libxml2-dev libattr1-dev
+    sudo apt-get install rhash imagemagick mkvtoolnix mediainfo webp libffi-dev libxml2-dev libattr1-dev
 
 ### Installing XBake
 Once all of the system libraries have been installed, clone the git repository from Bitbucket, then run the
