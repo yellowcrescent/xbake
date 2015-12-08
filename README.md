@@ -13,15 +13,41 @@ If you haven't done so already, be sure you have a copy of the Python dev packag
 
     sudo apt-get install python-dev python-pip
 
-#### Dependencies: Required Python modules
-Required Python modules can be installed via PyPi/pip by using the command below:
-
-    sudo pip install pymongo redis pymediainfo enzyme distance requests xmltodict xattr
-
 #### Dependencies: Required Software
-XBake also requires various pieces of software to perform its magic. This includes FFmpeg, ImageMagick, MkvToolNix, and MediaInfo. The command below will install everything *except* FFmpeg.
+XBake also requires various pieces of software to perform its magic. This includes ImageMagick, MkvToolNix, MediaInfo, and WebP.
+The command below also installs some dev libraries that may be required for compiling Python package dependencies.
 
-    sudo apt-get install imagemagick mkvtoolnix mediainfo
+    sudo apt-get install imagemagick mkvtoolnix mediainfo webp libffi-dev libxml2-dev libattr1-dev
+
+### Installing XBake
+Once all of the system libraries have been installed, clone the git repository from Bitbucket, then run the
+setuptools installer. This should also install all of the Python dependencies.
+
+    git clone https://bitbucket.org/yellowcrescent/yc_xbake
+    cd yc_xbake
+    sudo python setup.py install
+
+If you plan to make changes to the code, or pull updates frequently, you may want to use the 'develop' command,
+rather than 'install'. This will create a stub to execute your progam, and links back to the source location.
+
+    sudo python setup.py develop
+
+You can now test to make sure everything has been installed properly by running:
+
+    yc_xbake
+
+If all went well, you should see the help and usage output. If a program or dependency is missing, you should
+receive an error message indicating what needs to be fixed. If ffmpeg is missing or not installed, you will
+need to compile ffmpeg yourself (links below), or install it via a prebuilt package for your distro.
+
+## Additional Installation Information
+
+#### Dependencies: Python modules (Manual Installation)
+Required Python modules can be installed via PyPi/pip by using the command below. These are typically installed
+automatically by setuptools when using `python setup.py install`. If for some reason they are not installed
+automatically, here is the list of required packages:
+
+    sudo pip install pymongo redis pymediainfo enzyme distance requests xmltodict xattr flask lxml
 
 #### FFmpeg Installation
 Proper installation of FFmpeg (with robust codec support) can be fairly complex. There are various pre-built packages (depending on your distribution), as well as many 3rd party repos that contain pre-built FFmpeg packages with the most-commonly used libraries/options enabled.
@@ -39,13 +65,6 @@ I have written a script that assists in compilation of FFmpeg and its dependency
     chmod +x ffmpeg.sh
     ./ffmpeg.sh sysdeps
 
-
-### Installing yc_xbake
-After above dependencies have been met, installation can now be performed:
-
-    git clone https://bitbucket.org/yellowcrescent/yc_xbake
-    cd yc_xbake
-    sudo python setup.py install
 
 ## Installing Server Software (optional)
 

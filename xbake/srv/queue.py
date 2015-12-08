@@ -341,6 +341,7 @@ def cb_xcode(jdata):
 
     # Transcode
     logthis("xcode: Handing off control to xbake.xcode module for transcoding.",loglevel=LL.VERBOSE)
+    update_status(fid, "transcoding")
     xcode.run(infile=f_in,outfile=f_out,vername=vname,id=fid)
 
     # Check for presence of output file
