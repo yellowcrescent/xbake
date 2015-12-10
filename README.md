@@ -30,22 +30,22 @@ THE SOFTWARE.
 
 # Table of Contents
 
-- [Installation](#installation)
-  - [Prerequisites](#prerequisites)
-  - [Dependencies](#dependencies)
-  - [Installing XBake](#installing-xbake)
-  - [Additional Installation Information](#additional-installation-information)
-    - [Installing Server Software](#installing-server-software)
-    - [FFmpeg Installation](#ffmpeg-installation)
-- [Usage Information](#usage-information)
-  - [CLI Options](#cli-options)
-  - [Examples](#examples)
-  - [Configuration Files](#configuration-files)
-  - [Overrides](#overrides)
-- [Appendix & Specifications](#appendix)
-  - [Option List](#option-list)
-  - [MongoDB Schema](#mongodb-schema)
-  - [API Reference](#api-reference)
+- [Installation](#markdown-header-installation)
+  - [Prerequisites](#markdown-header-prerequisites)
+  - [Dependencies](#markdown-header-dependencies)
+  - [Installing XBake](#markdown-header-installing-xbake)
+  - [Additional Installation Information](#markdown-header-additional-installation-information)
+    - [Installing Server Software](#markdown-header-installing-server-software)
+    - [FFmpeg Installation](#markdown-header-ffmpeg-installation)
+- [Usage Information](#markdown-header-usage-information)
+  - [CLI Options](#markdown-header-cli-options)
+  - [Examples](#markdown-header-examples)
+  - [Configuration Files](#markdown-header-configuration-files)
+  - [Overrides](#markdown-header-overrides)
+- [Appendix & Specifications](#markdown-header-appendix)
+  - [Option List](#markdown-header-option-list)
+  - [MongoDB Schema](#markdown-header-mongodb-schema)
+  - [API Reference](#markdown-header-api-reference)
 
 ## Installation
 Below are instructions for installation on Debian and Debian-based distros (includes Ubuntu and Mint). The package names will be the same or similar for other platforms, so adapt as necessary.
@@ -241,9 +241,9 @@ This will scan the given directory for video files, extract information from the
 ```
 yc_xbake --scan -i '/mnt/media/tvshows/Game of Thrones'
 ```
-[Override files](#overrides) (`.xbake`) can be placed in directories to give XBake "hints" on a series title, season, TVDB ID, and a list (or regex) of files to ignore. XBake can also read and store override information from extended file attributes, if supported by your filesystem.
+[Override files](#markdown-header-overrides) (`.xbake`) can be placed in directories to give XBake "hints" on a series title, season, TVDB ID, and a list of files to ignore. XBake can also read and store override information from extended file attributes, if supported by your filesystem.
 
-Options specified in a user's [rcfile or local config file](#configuration-files) will always be taken into consideration (such as output type/location, scraper, and any other option).
+Options specified in a user's [rcfile or local config file](#markdown-header-configuration-files) will always be taken into consideration (such as output type/location, scraper, and any other option).
 
 ##### Baking subtitles (hardsubbing)
 When baking subtitles, XBake will check the list of tracks available in the source container, and choose the subtitle/text track marked as default. If there are multiple subtitle tracks, you can specify which you would like to use with the `--subid` option. When transcoding files with XBake, if no output file is specified, the same basename will be used, but the extension will be changed from `.mkv` to `.mp4` in the output filename.
@@ -253,7 +253,7 @@ yc_xbake --xcode --bake "Joukamachi no Dandelion - 01.mkv"
 ```
 ASS subtitles and font attachments will be automatically extracted from the container for use during encoding. Note that it is important that the fonts are located in a directory that __fontconfig__ knows about. For this reason, XBake will by default move the extracted fonts to `~/.fonts`, since this path is commonly included in the list of places to check for fonts. You can adjust the include paths in `/etc/fonts/fonts.conf`, but __USE CAUTION__ as setting a stupid include path (like `/` or a path with a TON of files or subdirectory, like your home directory) can cause some major issues! If you actually use `~/.fonts` for your own personal fonts, you may want to choose a different directory with the `fontdir` option, or enable `fontsave`, which does not remove the font files after encoding is complete.
 
-XBake works great for hardsubbing Advanced SubStation Alpha (ASS) subtitles, but can also do SubRip (SRT). Since SRT subs don't contain any style information, they tend to look pretty terrible when combined with whatever your machine considers the default sans-serif font. XBake uses Adobe's Myriad Pro Semibold when baking your SRT subs, but if you don't have that font, or have your own preference, you can adjust the `srt_style` option under the `[xcode]` section of your config file. Check the [option reference](#option-srt_style) for more info and full syntax.
+XBake works great for hardsubbing Advanced SubStation Alpha (ASS) subtitles, but can also do SubRip (SRT). Since SRT subs don't contain any style information, they tend to look pretty terrible when combined with whatever your machine considers the default sans-serif font. XBake uses Adobe's Myriad Pro Semibold when baking your SRT subs, but if you don't have that font, or have your own preference, you can adjust the `srt_style` option under the `[xcode]` section of your config file. Check the [option reference](#markdown-header-option-srt_style) for more info and full syntax.
 
 
 ### Configuration Files
@@ -282,7 +282,7 @@ apikey = "myAPIkey"
 fontsave = 1
 
 ```
-For a full list of available options, check out the [Option List](#option-list) section.
+For a full list of available options, check out the [Option List](#markdown-header-option-list) section.
 
 ### Overrides
 Overrides are settings that force a specific option while scanning for videos, or provide hints to the parser. To set overrides for a directory, you can create a JSON file named `.xbake` inside the directory.
