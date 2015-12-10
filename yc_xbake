@@ -92,7 +92,7 @@ class xsetup:
                         'acopy': 'auto',
                         'aid': None,
                         'srt_style': "FontName=MyriadPro-Semibold,Outline=1,Shadow=1,FontSize=24",
-                        'fontdir': None,
+                        'fontdir': "~/.fonts",
                         'fontsave': False,
                         'scale': None,
                         'flv': False,
