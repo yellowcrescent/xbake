@@ -186,21 +186,30 @@ def mediainfo(fname):
                     tcmd = milut[tkey]
                     topt = None
 
+                # check for dupes
+                if tblock.has_key(tname):
+                    logthis("Ignoring duplicate attribute:",suffix=tname,loglevel=LL.VERBOSE)
+                    continue
+
                 # exec opcode
-                if tcmd & MIP.COPY:
-                    tblock[tname] = tval
-                elif tcmd & MIP.STRCOPY:
-                    tblock[tname] = str(tval)
-                elif tcmd & MIP.INT:
-                    tblock[tname] = int(tval)
-                elif tcmd & MIP.FLOAT:
-                    tblock[tname] = float(tval)
-                elif tcmd & MIP.BOOL:
-                    tblock[tname] = bool(tval)
-                elif tcmd & MIP.DATE:
-                    tblock[tname] = int(time.mktime(time.strptime(tval,'%Z %Y-%m-%d %H:%M:%S')))
-                else:
-                    failwith(ER.NOTIMPL, "Specified tcmd opcode not implemented")
+                try:
+                    if tcmd & MIP.COPY:
+                        tblock[tname] = tval
+                    elif tcmd & MIP.STRCOPY:
+                        tblock[tname] = str(tval)
+                    elif tcmd & MIP.INT:
+                        tblock[tname] = int(tval)
+                    elif tcmd & MIP.FLOAT:
+                        tblock[tname] = float(tval)
+                    elif tcmd & MIP.BOOL:
+                        tblock[tname] = bool(tval)
+                    elif tcmd & MIP.DATE:
+                        tblock[tname] = int(time.mktime(time.strptime(tval,'%Z %Y-%m-%d %H:%M:%S')))
+                    else:
+                        failwith(ER.NOTIMPL, "Specified tcmd opcode not implemented.")
+                except e:                    
+                    logthis("Failed to parse mediainfo output:",prefix=tname,suffix=e,loglevel=LL.WARNING)
+                    continue
 
                 # post-filters
                 if tcmd & MIP.LOWER:
