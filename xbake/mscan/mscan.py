@@ -51,7 +51,7 @@ class CONM:
 
 # File match regexes
 fregex = [
-            "^(\[[^\]]+\])[\s._]*(?P<series>.+?)(?:[\s._]-[\s._]|[\._])(?:(?P<special>(NCOP|NCED|OP|ED|PV|OVA|ONA|Special|Insert|Preview|Lite|Short)\s*-?\s*[0-9]{0,2})|(?:[eEpP]{2}[\s._]*)?(?P<epnum>[0-9]{1,3}))(?P<version>[vep]{1,2}[0-9]{1,2}([-,][0-9]{1,2})?)?",
+            "^(\[(?P<fansub>[^\]]+)\])[\s._]*(?P<series>.+?)(?:[\s._]-[\s._]|[\._])(?:(?P<special>(NCOP|NCED|OP|ED|PV|OVA|ONA|Special|Insert|Preview|Lite|Short)\s*-?\s*[0-9]{0,2})|(?:[eEpP]{2}[\s._]*)?(?P<epnum>[0-9]{1,3}))(?P<version>[vep]{1,2}[0-9]{1,2}([-,][0-9]{1,2})?)?",
             "^(?P<series>.+?)(?P<season>[0-9]{1,2})x(?P<epnum>[0-9]{1,2})(.*)$",
             "^(?P<series>.+)[\.\-_ ]SE?(?P<season>[0-9]{1,2})EP?(?P<epnum>[0-9]{1,2})(?:[\.\-_ ](?P<eptitle>.+?))?[\.\-_\[\( ]+(?:([0-9]{3,4}p|web|aac|bd|tv|hd|x?264)+)",
             "^(?P<series>.+)[\._](?P<epnum>[0-9]{1,4})[\._](.*)$",
@@ -242,6 +242,7 @@ def scanfile(rfile,ovrx={},mforce=False,nochecksum=False,savechecksum=True):
     logthis("Examining file:",suffix=xv,loglevel=LL.INFO)
 
     # Get xattribs
+    fovr = {}
     fovr = ovrx
     fovr.update(parse_xattr_overrides(xvreal))
     if fovr.has_key('ignore'):
@@ -340,6 +341,12 @@ def parse_episode_filename(dasc,ovrx={},single=False,longep=False):
                     # Directory name should be series name (if you name your directories properly!)
                     sser = dasc['dpath']['base']
 
+            # Parse out the fansub group name
+            if mm.has_key('fansub'):
+                fansub = mm['fansub'].strip()
+            else:
+                fansub = None
+
             # Grab season name from parsed filename; if it doesn't exist, assume Season 1
             snum = mm.get('season','1')
             if snum is None: snum = '1'
@@ -370,11 +377,15 @@ def parse_episode_filename(dasc,ovrx={},single=False,longep=False):
                     sser = ovrx['series_name']
                     logthis("Series name set by override. Series:",suffix=sser,loglevel=LL.VERBOSE)
 
+                if ovrx.has_key('fansub'):
+                    fansub = ovrx['fansub']
+                    logthis("Fansub group set by override. Fansub:",suffix=fansub,loglevel=LL.VERBOSE)
+
             logthis("Matched [%s] with regex:" % (dval),suffix=rgx,loglevel=LL.DEBUG)
-            logthis("> Ser[%s] Se#[%s] Ep#[%s] Special[%s]" % (sser,snum,epnum,special),loglevel=LL.DEBUG)
+            logthis("> Ser[%s] Se#[%s] Ep#[%s] Special[%s] Fansub[%s]" % (sser,snum,epnum,special,fansub),loglevel=LL.DEBUG)
 
             # Build output fparse array
-            fparse = { 'series': sser, 'season': int(snum), 'episode': int(epnum), 'special': special }
+            fparse = { 'series': sser, 'season': int(snum), 'episode': int(epnum), 'special': special, 'fansub': fansub }
 
             # Add series to tdex
             tdex_id = mdb.series_add(sser,ovrx)
@@ -429,11 +440,13 @@ xaov_map =  {
                 'media.episode':    "episode",
                 'media.xref.tvdb':  "tvdb_id",
                 'media.xref.mal':   "mal_id",
+                'media.fansub':     "fansub",
                 'checksum.md5':     "md5",
                 'checksum.ed2k':    "ed2k",
                 'checksum.crc32':   "crc32",
                 'checksum.sha1':    "sha1",
-                'xbake.ignore':     "ignore"
+                'xbake.ignore':     "ignore",
+                'xbake.tdex':       "tdex"
             }
 
 def parse_xattr_overrides(xpath):
