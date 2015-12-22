@@ -27,12 +27,7 @@ import distance
 from urlparse import urlparse
 
 # Logging & Error handling
-from xbake.common.logthis import C
-from xbake.common.logthis import LL
-from xbake.common.logthis import logthis
-from xbake.common.logthis import ER
-from xbake.common.logthis import failwith
-from xbake.common.logthis import print_r
+from xbake.common.logthis import C,LL,logthis,ER,failwith,loglevel,print_r
 
 from xbake.xcode import ffmpeg
 from xbake.mscan import util
@@ -475,7 +470,7 @@ def parse_overrides(xpath):
             logthis("Failed to parse JSON from overrides file:",suffix=xfile,loglevel=LL.ERROR)
             logthis("Parse error:",suffix=e,loglevel=LL.ERROR)
             xrides = {}
-        except e:
+        except Exception as e:
             logthis("Failed to parse JSON from overrides file:",suffix=xfile,loglevel=LL.ERROR)
             logthis("Other error:",suffix=e,loglevel=LL.ERROR)
             xrides = {}

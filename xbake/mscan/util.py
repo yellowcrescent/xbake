@@ -28,11 +28,7 @@ import hashlib
 from pymediainfo import MediaInfo
 
 # Logging & Error handling
-from xbake.common.logthis import C
-from xbake.common.logthis import LL
-from xbake.common.logthis import logthis
-from xbake.common.logthis import ER
-from xbake.common.logthis import failwith
+from xbake.common.logthis import C,LL,logthis,ER,failwith,loglevel,print_r
 
 from xbake.common import fsutil
 
@@ -207,7 +203,7 @@ def mediainfo(fname):
                         tblock[tname] = int(time.mktime(time.strptime(tval,'%Z %Y-%m-%d %H:%M:%S')))
                     else:
                         failwith(ER.NOTIMPL, "Specified tcmd opcode not implemented.")
-                except e:                    
+                except Exception as e:                    
                     logthis("Failed to parse mediainfo output:",prefix=tname,suffix=e,loglevel=LL.WARNING)
                     continue
 

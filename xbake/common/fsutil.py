@@ -23,11 +23,7 @@ import time
 import xattr
 
 # Logging & Error handling
-from xbake.common.logthis import C
-from xbake.common.logthis import LL
-from xbake.common.logthis import logthis
-from xbake.common.logthis import ER
-from xbake.common.logthis import failwith
+from xbake.common.logthis import C,LL,logthis,ER,failwith,loglevel,print_r
 
 
 def xattr_get(xfile):
@@ -39,7 +35,7 @@ def xattr_get(xfile):
 	try:
 		for k,v in xattr.xattr(xfile).iteritems():
 			xout[k.replace('user.','')] = v
-	except e:
+	except Exception as e:
 		logthis("Failed to get extended file attributes for",suffix=xfile,loglevel=LL.WARNING)
 		logthis("xattr:",suffix=e,loglevel=LL.WARNING)
 
@@ -54,7 +50,7 @@ def xattr_set(xfile,xsetter):
 	for k,v in xsetter.iteritems():
 		try:
 			xattr.setxattr(xfile, 'user.'+str(k), str(v))
-		except e:
+		except Exception as e:
 			logthis("Failed to set extended file attributes for",suffix=xfile,loglevel=LL.WARNING)
 			logthis("xattr:",suffix=e,loglevel=LL.WARNING)
 			return False

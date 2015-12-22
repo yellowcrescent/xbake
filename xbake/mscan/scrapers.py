@@ -26,12 +26,7 @@ import requests
 import xmltodict
 
 # Logging & Error handling
-from xbake.common.logthis import C
-from xbake.common.logthis import LL
-from xbake.common.logthis import logthis
-from xbake.common.logthis import ER
-from xbake.common.logthis import failwith
-from xbake.common.logthis import print_r
+from xbake.common.logthis import C,LL,logthis,ER,failwith,loglevel,print_r
 
 
 def tvdb(xsea,tdex):
@@ -275,6 +270,6 @@ def date2time(dstr,fstr="%Y-%m-%d"):
 	"""
 	try:
 		return long(time.mktime(time.strptime(dstr,fstr)))
-	except e:
+	except Exception as e:
 		logthis("strptime() conversion failed:",suffix=e,loglevel=LL.VERBOSE)
 		return None

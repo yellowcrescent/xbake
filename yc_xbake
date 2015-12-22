@@ -26,17 +26,10 @@ import operator
 import time
 
 # Logging & Error handling
-from xbake.common.logthis import C
-from xbake.common.logthis import LL
-from xbake.common.logthis import logthis
-from xbake.common.logthis import ER
-from xbake.common.logthis import failwith
-from xbake.common.logthis import loglevel
-from xbake.common.logthis import exceptionHandler
+from xbake.common.logthis import C,LL,logthis,ER,failwith,loglevel,print_r,exceptionHandler
 
 from xbake.common import rcfile
-from xbake.xcode import ffmpeg
-from xbake.xcode import xcode
+from xbake.xcode import ffmpeg,xcode
 from xbake.mscan import mscan
 from xbake.srv import daemon
 
@@ -45,8 +38,8 @@ oparser = None
 class xsetup:
     """Contains version information and globals"""
     ## Version info
-    version = "0.10.12"
-    vdate   = "06 Dec 2015"
+    version = "0.10.13"
+    vdate   = "22 Dec 2015"
 
     config   =  None
     lconfig  =  None

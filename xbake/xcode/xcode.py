@@ -25,11 +25,7 @@ import subprocess
 import enzyme
 
 # Logging & Error handling
-from xbake.common.logthis import C
-from xbake.common.logthis import LL
-from xbake.common.logthis import logthis
-from xbake.common.logthis import ER
-from xbake.common.logthis import failwith
+from xbake.common.logthis import C,LL,logthis,ER,failwith,loglevel,print_r
 
 from xbake.xcode import ffmpeg
 from xbake.mscan import util

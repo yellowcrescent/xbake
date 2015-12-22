@@ -23,9 +23,7 @@ import codecs
 import ConfigParser
 
 # Logging
-from xbake.common.logthis import C
-from xbake.common.logthis import LL
-from xbake.common.logthis import logthis
+from xbake.common.logthis import C,LL,logthis,ER,failwith,loglevel,print_r
 
 # RCfile list
 rcfiles = [ './xbake.conf', '~/.xbake/xbake.conf', '~/.xbake', '/etc/xbake.conf' ]

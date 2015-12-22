@@ -24,7 +24,7 @@ from setproctitle import setproctitle
 from flask import Flask,json,jsonify,make_response,request
 
 # Logging & Error handling
-from xbake.common.logthis import C,LL,ER,logthis,failwith,print_r
+from xbake.common.logthis import C,LL,logthis,ER,failwith,loglevel,print_r
 
 from xbake.mscan import out
 from xbake.srv import queue

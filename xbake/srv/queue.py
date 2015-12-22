@@ -27,7 +27,7 @@ from setproctitle import setproctitle
 from xbake.common import db
 
 # Logging & Error handling
-from xbake.common.logthis import C,LL,ER,logthis,failwith,print_r
+from xbake.common.logthis import C,LL,logthis,ER,failwith,loglevel,print_r
 
 # mscan, xcode, and other file utility imports
 from xbake.mscan.util import md5sum,checksum,rhash,dstat
@@ -113,7 +113,7 @@ def qrunner(qname="xcode"):
 
             try:
                 qitem = json.loads(qiraw)
-            except e:
+            except Exception as e:
                 logthis("!! QRunner: Bad JSON data from queue item. Job discarded. raw data:",prefix=qname,suffix=qiraw,loglevel=LL.ERROR)
 
             # If we've got a valid job item, let's run it!
@@ -441,7 +441,7 @@ def load_profiles():
                 k,v = tox.split('=')
                 xlist[k.lower()] = v
             oplist[tp] = xlist
-        except e:
+        except Exception as e:
             logthis("Failed to parse profile for",suffix=tp,loglevel=LL.ERROR)
             logthis("Error:",suffix=e,loglevel=LL.ERROR)
 
