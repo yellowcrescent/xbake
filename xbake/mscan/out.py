@@ -92,24 +92,106 @@ def to_mongo(indata,moncon):
 
         slist.append(thisx)
 
-    # Insert into Mongo
+    ## Upsert all the things into Mongo
+
+    # Build the up2date matrix
+    up2dater = {
+                'series': { 'new': 0, 'updated': 0, 'nc': 0, 'total': 0, 'upserted': 0, 'errors': 0 },
+                'episodes': { 'new': 0, 'updated': 0, 'nc': 0, 'total': 0, 'upserted': 0, 'errors': 0 },
+                'files': { 'new': 0, 'updated': 0, 'nc': 0, 'total': 0, 'upserted': 0, 'errors': 0 }
+               }
+
+    # Series Data
     logthis("Inserting series data into Mongo...",loglevel=LL.VERBOSE)
-    monjer.insert_many("series", slist)
+    for tk,tss in enumerate(slist):
+        # Process each series        
+        tssid = tss.get('_id')
+        logthis("** Series:",prefix=tssid,suffix=tss.get("title",tssid),loglevel=LL.DEBUG)
+        thisup = int(tss.get("lastupdated",0))
+        up2dater['series']['total'] += 1
+
+        # Check for existing entry
+        txo = monjer.findOne("series", { "_id": tssid })        
+        if txo:
+            lastup = int(txo.get("lastupdated",0))
+            logthis("-- Last Updated:",prefix=tssid,suffix="%s (%d)" % (datetime.utcfromtimestamp(lastup).strftime("%d %b %Y %H:%M:%S"), lastup),loglevel=LL.DEBUG)
+        else:
+            txo = {}
+            lastup = -1
+        logthis("-- This Updated:",prefix=tssid,suffix="%s (%d)" % (datetime.utcfromtimestamp(thisup).strftime("%d %b %Y %H:%M:%S"), thisup),loglevel=LL.DEBUG)
+
+        # Check if this entry is newer than the existing one
+        if thisup > lastup:
+            try:
+                # Use dict.update() so we can retain extra fields for entries being updated
+                txo.update(tss)
+                monjer.upsert("series",tssid,txo)
+                up2dater['series']['upserted'] += 1
+                if lastup > 0:
+                    logthis(">> Series updated OK!",prefix=tssid,loglevel=LL.VERBOSE)
+                    up2dater['series']['updated'] += 1
+                else:
+                    logthis("++ Series inserted OK!",prefix=tssid,loglevel=LL.VERBOSE)
+                    up2dater['series']['new'] += 1
+            except Exception as e:
+                logthis("!! Series upsert failed.",prefix=tssid,suffix=e,loglevel=LL.ERROR)
+                up2dater['series']['errors'] += 1
+        else:
+            logthis("!! Existing entry up-to-date",prefix=tssid,loglevel=LL.VERBOSE)
+            up2dater['series']['nc'] += 1
+
+
+    # Episode Data
     logthis("Inserting episode data into Mongo...",loglevel=LL.VERBOSE)
-    monjer.insert_many("episodes", eplist)
+    for tk,tss in enumerate(eplist):
+        # Process each series
+        tssid = tss.get('_id')
+        logthis("** Episode:",prefix=tssid,suffix="S:%s/E:%s \"%s\"" % (tss.get("SeasonNumber",""),tss.get("EpisodeNumber",""),tss.get("EpisodeName","")),loglevel=LL.DEBUG)
+        thisup = int(tss.get("lastupdated",0))
+        up2dater['episodes']['total'] += 1
+
+        # Check for existing entry
+        txo = monjer.findOne("episodes", { "_id": tssid })
+        if txo:
+            lastup = int(txo.get("lastupdated",0))
+            logthis("-- Last Updated:",prefix=tssid,suffix="%s (%d)" % (datetime.utcfromtimestamp(lastup).strftime("%d %b %Y %H:%M:%S"), lastup),loglevel=LL.DEBUG)
+        else:
+            txo = {}
+            lastup = -1
+        logthis("-- This Updated:",prefix=tssid,suffix="%s (%d)" % (datetime.utcfromtimestamp(thisup).strftime("%d %b %Y %H:%M:%S"), thisup),loglevel=LL.DEBUG)
+
+        # Check if this entry is newer than the existing one        
+        if thisup > lastup:
+            try:
+                # Use dict.update() so we can retain extra fields for entries being updated
+                txo.update(tss)
+                monjer.upsert("episodes",tssid,txo)
+                up2dater['episodes']['upserted'] += 1
+                if lastup > 0:
+                    logthis(">> Episode updated OK!",prefix=tssid,loglevel=LL.VERBOSE)
+                    up2dater['episodes']['updated'] += 1
+                else:
+                    logthis("++ Episode inserted OK!",prefix=tssid,loglevel=LL.VERBOSE)
+                    up2dater['episodes']['new'] += 1
+            except Exception as e:
+                logthis("!! Episode upsert failed.",prefix=tssid,suffix=e,loglevel=LL.ERROR)
+                up2dater['episodes']['errors'] += 1
+        else:
+            logthis("!! Existing entry up-to-date",prefix=tssid,loglevel=LL.VERBOSE)
+            up2dater['episodes']['nc'] += 1
+
 
     ## Insert Source File data
     xfiles = {}
-    files_skipped = 0
-    files_upserted = 0
     for fname,fdata in indata['files'].iteritems():
         thisf = {}
         md5 = fdata['checksum']['md5']
+        up2dater['files']['total'] += 1
 
         # Check if unchanged
         if fdata['status'] == "unchanged":
-            logthis("File already exists, and is unchanged. Skipping.",loglevel=LL.VERBOSE)
-            files_skipped += 1
+            logthis("File already exists, and is unchanged. Skipping.",loglevel=LL.VERBOSE)            
+            up2dater['files']['nc'] += 1
             continue
 
         # Check if entry already exists
@@ -152,6 +234,9 @@ def to_mongo(indata,moncon):
         # Create location for this source
         if not thisf.has_key('location'):
             thisf['location'] = {}
+            up2dater['files']['new'] += 1
+        else:
+            up2dater['files']['updated'] += 1
 
         thisf['location'][hostname] = {
                                         'tstamp': long(indata['scan']['tstamp']),
@@ -163,20 +248,18 @@ def to_mongo(indata,moncon):
         # Upsert
         logthis("** File ID:",suffix=md5,loglevel=LL.DEBUG)
         monjer.upsert("files", md5, thisf)
-        files_upserted += 1
+        up2dater['files']['upserted'] += 1
+
 
     # Build status information
     status_out = {
                     'ok': True,
                     'status': None,
                     'message': None,
-                    'series': len(slist),
-                    'episodes': len(eplist),
-                    'files': files_upserted,
-                    'files_skipped': files_skipped
+                    'stats': up2dater
                  }
 
-    if files_upserted < 1:
+    if up2dater['files']['upserted'] < 1:
         status_out['http_status'] = "216 Nothing Added"
         status_out['status'] = "warning"
         status_out['message'] = "No files were added"
