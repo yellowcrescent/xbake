@@ -38,7 +38,7 @@ oparser = None
 class xsetup:
     """Contains version information and globals"""
     ## Version info
-    version = "0.10.153"
+    version = "0.10.16"
     vdate   = "23 Dec 2015"
 
     config   =  None
@@ -145,7 +145,7 @@ def parse_cli():
     Parse command-line options
     """
     global oparser
-    oparser = optparse.OptionParser(usage="%prog <--xcode|--scan|--ssonly|--server> [options] -i INFILE [-o OUTFILE]",version=xsetup.version+" ("+xsetup.vdate+")")
+    oparser = optparse.OptionParser(usage="%prog <--xcode|--scan|--ssonly|--server> [options] <[-i] INFILE> [[-o] OUTFILE]",version=xsetup.version+" ("+xsetup.vdate+")")
 
     # General options
     oparser.add_option('-v', '--verbose', action="count", dest="run.verbose", help="Increase logging verbosity (-v Verbose, -vv Debug, -vvv Debug2)")
@@ -225,6 +225,11 @@ def parse_cli():
 
     options, args = oparser.parse_args(sys.argv[1:])
     vout = vars(options)
+
+    if len(args) >= 1:
+        vout['run.infile'] = args[0]
+    if len(args) >= 2:
+        vout['run.outfile'] = args[1]
 
     if vout['run.verbose']:
         vout['run.verbose'] += 6

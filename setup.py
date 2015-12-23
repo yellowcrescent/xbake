@@ -4,7 +4,7 @@
 from setuptools import setup, find_packages
 setup(
     name = "yc_xbake",
-    version = "0.10.153",
+    version = "0.10.16",
     author = "Jacob Hipps",
     author_email = "jacob@ycnrg.org",
     license = "MIT",
