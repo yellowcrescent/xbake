@@ -170,6 +170,11 @@ def scan_dir(dpath,dreflinks=True,mforce=False,nochecksum=False,savechecksum=Tru
         # Get xattribs
         ovrx = parse_xattr_overrides(tdir)
 
+        # Check if ignore flag is set for this directory (xattribs only)
+        if ovrx.has_key('ignore'):
+            logthis("Skipping directory, has 'ignore' flag set in xattribs:",suffix=tdir,loglevel=LL.INFO)
+            continue
+
         # Parse overrides for this directory
         ovrx.update(parse_overrides(tdir))
 
@@ -199,8 +204,15 @@ def scan_dir(dpath,dreflinks=True,mforce=False,nochecksum=False,savechecksum=Tru
                 logthis("Skipping file. Matched rule in override ignore list:",suffix=cfile,loglevel=LL.INFO)
                 continue
 
+            # Create copy of override object and strip-out unneeded values and flags
+            ovrx_sub = copy(ovrx)
+            if ovrx_sub.has_key('ignore'): del(ovrx_sub['ignore'])
+            if ovrx_sub.has_key('md5'): del(ovrx_sub['md5'])
+            if ovrx_sub.has_key('crc32'): del(ovrx_sub['crc32'])
+            if ovrx_sub.has_key('ed2k'): del(ovrx_sub['ed2k'])
+
             # Get file properties            
-            dasc = scanfile(xvreal,ovrx,mforce,nochecksum)
+            dasc = scanfile(xvreal,ovrx_sub,mforce,nochecksum)
             if dasc:
                 ddex[xv] = dasc
                 new_files += 1
