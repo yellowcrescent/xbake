@@ -24,6 +24,7 @@ import time
 import socket
 import subprocess
 import distance
+from copy import copy,deepcopy
 from urlparse import urlparse
 
 # Logging & Error handling

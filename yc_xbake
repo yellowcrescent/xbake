@@ -38,7 +38,7 @@ oparser = None
 class xsetup:
     """Contains version information and globals"""
     ## Version info
-    version = "0.10.152"
+    version = "0.10.153"
     vdate   = "23 Dec 2015"
 
     config   =  None
