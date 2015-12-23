@@ -202,7 +202,7 @@ def scan_dir(dpath,dreflinks=True,mforce=False,nochecksum=False,savechecksum=Tru
 
             # Skip file if on the overrides 'ignore' list
             if check_overrides(ovrx, xv):
-                logthis("Skipping file. Matched rule in override ignore list:",suffix=cfile,loglevel=LL.INFO)
+                logthis("Skipping file. Matched rule in override ignore list:",suffix=xvreal,loglevel=LL.INFO)
                 continue
 
             # Create copy of override object and strip-out unneeded values and flags
