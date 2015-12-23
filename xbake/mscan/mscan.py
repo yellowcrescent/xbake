@@ -200,6 +200,7 @@ def scan_dir(dpath,dreflinks=True,mforce=False,nochecksum=False,savechecksum=Tru
                 continue
 
             # Get file properties
+            logthis("ovrx =",suffix=print_r(ovrx),loglevel=LL.DEBUG2)
             dasc = scanfile(xvreal,ovrx,mforce,nochecksum)
             if dasc:
                 ddex[xv] = dasc
@@ -230,6 +231,7 @@ def scanfile(rfile,ovrx={},mforce=False,nochecksum=False,savechecksum=True):
     """
     dasc = {}
 
+    logthis("ovrx =",suffix=print_r(ovrx),loglevel=LL.DEBUG2)
     # get file parts
     xvreal = rfile
     tdir,xv = os.path.split(xvreal)
