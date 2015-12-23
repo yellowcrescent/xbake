@@ -199,8 +199,7 @@ def scan_dir(dpath,dreflinks=True,mforce=False,nochecksum=False,savechecksum=Tru
                 logthis("Skipping file. Matched rule in override ignore list:",suffix=cfile,loglevel=LL.INFO)
                 continue
 
-            # Get file properties
-            logthis("ovrx =",suffix=print_r(ovrx),loglevel=LL.DEBUG2)
+            # Get file properties            
             dasc = scanfile(xvreal,ovrx,mforce,nochecksum)
             if dasc:
                 ddex[xv] = dasc
@@ -230,8 +229,7 @@ def scanfile(rfile,ovrx={},mforce=False,nochecksum=False,savechecksum=True):
     mediainfo and container, video, audio, subtitle track info, and chapter data extracted
     """
     dasc = {}
-
-    logthis("ovrx =",suffix=print_r(ovrx),loglevel=LL.DEBUG2)
+    
     # get file parts
     xvreal = rfile
     tdir,xv = os.path.split(xvreal)
@@ -245,7 +243,7 @@ def scanfile(rfile,ovrx={},mforce=False,nochecksum=False,savechecksum=True):
 
     # Get xattribs
     fovr = {}
-    fovr = ovrx
+    fovr.update(ovrx)
     logthis("fovr/ovrx =",suffix=print_r(fovr),loglevel=LL.DEBUG2)
     fovr.update(parse_xattr_overrides(xvreal))
     logthis("fovr/xattr =",suffix=print_r(fovr),loglevel=LL.DEBUG2)
