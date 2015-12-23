@@ -112,7 +112,7 @@ def to_mongo(indata,moncon):
         up2dater['series']['total'] += 1
 
         # Check for existing entry
-        txo = monjer.findOne("series", { "_id": tssid })        
+        txo = monjer.findOne("series", { "_id": tssid })
         if txo:
             lastup = int(txo.get("lastupdated",0))
             logthis("-- Last Updated:",prefix=tssid,suffix="%s (%d)" % (datetime.utcfromtimestamp(lastup).strftime("%d %b %Y %H:%M:%S"), lastup),loglevel=LL.DEBUG)
@@ -216,7 +216,7 @@ def to_mongo(indata,moncon):
             # XXX-TODO: Why in the hell don't we just query mongo for every entry?
             # Check if series info was updated as part of this submission or scan
             if indata['series'].has_key(fdata['tdex_id']):
-                thisf['series_id'] = indata['series'][fdata['tdex_id']]['_id']
+                thisf['series_id'] = indata['series'][fdata['tdex_id']].get('_id',None)
                 thisf['episode_id'] = find_matching_episode(indata['series'][fdata['tdex_id']], fdata['fparse'])
             else:
                 # Query Mongo for matching series and episode IDs
