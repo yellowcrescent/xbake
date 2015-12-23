@@ -244,7 +244,9 @@ def scanfile(rfile,ovrx={},mforce=False,nochecksum=False,savechecksum=True):
     # Get xattribs
     fovr = {}
     fovr = ovrx
+    logthis("fovr/ovrx =",suffix=print_r(fovr),loglevel=LL.DEBUG2)
     fovr.update(parse_xattr_overrides(xvreal))
+    logthis("fovr/xattr =",suffix=print_r(fovr),loglevel=LL.DEBUG2)
     if fovr.has_key('ignore'):
         logthis("File has 'ignore' flag set via override; skipping",loglevel=LL.INFO)
         return False
