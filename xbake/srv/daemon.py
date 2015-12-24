@@ -178,5 +178,5 @@ def pidfile_set():
         fo.write("%d\n" % os.getpid())
         fo.close()        
     except:
-        logthis("Failed to write data to PID file:",suffix=fname,loglevel=LL.ERROR)
+        logthis("Failed to write data to PID file:",suffix=pfname,loglevel=LL.ERROR)
         failwith(PROCFAIL,"Ensure write permission at the PID file location.")

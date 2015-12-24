@@ -38,7 +38,7 @@ oparser = None
 class xsetup:
     """Contains version information and globals"""
     ## Version info
-    version = "0.10.17"
+    version = "0.10.171"
     vdate   = "24 Dec 2015"
 
     config   =  None
@@ -114,7 +114,7 @@ class xsetup:
                         'path': False
                     },
                     'srv': {
-                        'pidfile': "/var/run/xbake.pid",
+                        'pidfile': "xbake.pid",
                         'iface': "0.0.0.0",
                         'port': 7037,
                         'nofork': False,
@@ -210,7 +210,7 @@ def parse_cli():
 
     # Daemon/Server options
     opg_srv = optparse.OptionGroup(oparser, "Daemon", "Options that apply when XBake is running as a daemon (server mode)")
-    opg_srv.add_option('--pidfile',action="store",dest="srv.pidfile",default=False,metavar="PATH",help="PID file [default: /var/run/xbake.pid]")
+    opg_srv.add_option('--pidfile',action="store",dest="srv.pidfile",default=False,metavar="PATH",help="PID file [default: xbake.pid]")
     opg_srv.add_option('--iface',action="store",dest="srv.iface",default=False,metavar="IP",help="Interface to bind to [default: 0.0.0.0]")
     opg_srv.add_option('--port',action="store",dest="srv.port",default=False,metavar="PORT",help="Port to listen on [default: 7037]")
     opg_srv.add_option('--nofork',action="store_true",dest="srv.nofork",default=False,help="Don't fork (stay loaded in the foreground)")
