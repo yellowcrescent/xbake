@@ -227,6 +227,7 @@ Options for specifying additional metadata to be included in the database entry 
 ### Daemon Options
 Options that apply when XBake is running as a daemon (modeset = `srv`)
 ```
+    --pidfile=PATH      PID file [default: /var/run/xbake.pid]
     --iface=IP          Interface to bind to [default: 0.0.0.0]
     --port=PORT         Port to listen on [default: 7037]
     --nofork            Don't fork (stay loaded in the foreground)
@@ -394,6 +395,7 @@ List of supported configuration options, followed by their default value.
 - port => 6379
 
 ##### srv
+- pidfile => '/var/run/xbake.pid'
 - xcode_scale_allowance => '10'
 - xcode_show_ffmpeg => false
 - xfer_path => '.'

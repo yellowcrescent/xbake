@@ -43,6 +43,7 @@ def start(bind_ip="0.0.0.0",bind_port=7037,fdebug=False):
 
     # set process title
     setproctitle("yc_xbake: master process (%s:%d)" % (bind_ip, bind_port))
+    pidfile_set()
 
     # spawn queue runners
     queue.start('xfer')
@@ -169,3 +170,13 @@ def route_mscan_last():
 
 def pjson(oin):
     return json.dumps(oin,indent=4,separators=(',', ': '))
+
+def pidfile_set():
+    pfname = __main__.xsetup.config['srv']['pidfile']
+    try:
+        fo = open(pfname,"w")
+        fo.write("%d\n" % os.getpid())
+        fo.close()        
+    except:
+        logthis("Failed to write data to PID file:",suffix=fname,loglevel=LL.ERROR)
+        failwith(PROCFAIL,"Ensure write permission at the PID file location.")
