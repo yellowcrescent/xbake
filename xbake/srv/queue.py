@@ -346,7 +346,7 @@ def cb_xcode(jdata):
         # check if we need to scale
         if v_height < (x_height - s_allow) or v_height > (x_height + s_allow): xscale = True
         if v_width < (x_width - s_allow) or v_width > (x_width + s_allow): xscale = True
-        
+
         # make sure to scale if the source video has an uneven dimension (as required by x264)
         if (v_height % 2) or (v_width % 2): xscale = True
 
@@ -356,9 +356,16 @@ def cb_xcode(jdata):
             s_width = int(profdata['width'])
         else:
             s_width = x_width
+        # ensure s_width is always even
+        s_width += s_width % 2
         __main__.xsetup.config['xcode']['scale'] = "%d:%d" % (s_width,x_height)
     else:
         __main__.xsetup.config['xcode']['scale'] = None
+
+    # print params for debugging
+    logthis("xcode: Set xsetup.xcode config:\n",suffix=print_r(__main__.xsetup.config['xcode']),loglevel=LL.DEBUG)
+    logthis("xcode: Set xsetup.run config:\n",suffix=print_r(__main__.xsetup.config['run']),loglevel=LL.DEBUG)
+    logthis("xcode: Set xsetup.vid config:\n",suffix=print_r(__main__.xsetup.config['vid']),loglevel=LL.DEBUG)
 
     # Transcode
     logthis("xcode: Handing off control to xbake.xcode module for transcoding.",loglevel=LL.VERBOSE)
