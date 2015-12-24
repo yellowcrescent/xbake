@@ -99,8 +99,26 @@ def qrunner(qname="xcode"):
     qq = "queue_"+qname
     wq = "work_"+qname
 
-    # TODO: check work queue (work_*) and process any unhandled items
+    # Crash recovery
+    # Check work queue (work_*) and re-queue any unhandled items
+    logthis("-- QRunner crash recovery: checking for abandoned jobs...",loglevel=LL.VERBOSE)
+    requeued = 0
+    while(rdx.llen(wq) != 0):
+        crraw = rdx.lpop(wq)
+        try:
+            critem = json.loads(crraw)
+        except Exception as e:
+            logthis("!! QRunner crash recovery: Bad JSON data from queue item. Job discarded. raw data:",prefix=qname,suffix=crraw,loglevel=LL.ERROR)
+            continue
+        cr_jid = critem.get("id","??")
+        logthis("** Requeued abandoned job:",prefix=qname,suffix=cr_jid,loglevel=LL.WARNING)
+        rdx.rpush(qq,crraw)
+        requeued += 1
 
+    if requeued:
+        logthis("-- QRunner crash recovery OK! Jobs requeued:",prefix=qname,suffix=requeued,loglevel=LL.VERBOSE)
+
+    logthis("pre-run queue sizes: %s = %d / %s = %d" % (qq,rdx.llen(qq),wq,rdx.llen(wq)),prefix=qname,loglevel=LL.DEBUG)
     logthis("-- QRunner waiting; queue:",prefix=qname,suffix=qname,loglevel=LL.VERBOSE)
     while(True):
         # RPOP from main queue and LPUSH on to the work queue

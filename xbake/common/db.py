@@ -166,6 +166,9 @@ class redis:
     def count(self):
         return self.rcon.dbsize()
 
+    def llen(self,qname):
+        return self.rcon.llen(self.rprefix+":"+qname)
+
     def lpop(self,qname):
         return self.rcon.lpop(self.rprefix+":"+qname)
 
