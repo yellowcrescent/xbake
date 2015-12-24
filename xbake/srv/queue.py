@@ -346,6 +346,9 @@ def cb_xcode(jdata):
         # check if we need to scale
         if v_height < (x_height - s_allow) or v_height > (x_height + s_allow): xscale = True
         if v_width < (x_width - s_allow) or v_width > (x_width + s_allow): xscale = True
+        
+        # make sure to scale if the source video has an uneven dimension (as required by x264)
+        if (v_height % 2) or (v_width % 2): xscale = True
 
     # set scale params
     if xscale:
