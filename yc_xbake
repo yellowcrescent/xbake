@@ -38,8 +38,8 @@ oparser = None
 class xsetup:
     """Contains version information and globals"""
     ## Version info
-    version = "0.10.173"
-    vdate   = "24 Dec 2015"
+    version = "0.10.174"
+    vdate   = "25 Dec 2015"
 
     config   =  None
     lconfig  =  None
@@ -146,7 +146,7 @@ def parse_cli():
     Parse command-line options
     """
     global oparser
-    oparser = optparse.OptionParser(usage="%prog <--xcode|--scan|--ssonly|--server> [options] <[-i] INFILE> [[-o] OUTFILE]",version=xsetup.version+" ("+xsetup.vdate+")")
+    oparser = optparse.OptionParser(usage="%prog <--xcode|--scan|--ssonly|--server|--set> [options] <[-i] INFILE> [[-o] OUTFILE]",version=xsetup.version+" ("+xsetup.vdate+")")
 
     # General options
     oparser.add_option('-v', '--verbose', action="count", dest="run.verbose", help="Increase logging verbosity (-v Verbose, -vv Debug, -vvv Debug2)")
@@ -160,6 +160,7 @@ def parse_cli():
     opg_mode.add_option('--scan',action="store_const",dest="run.mode",const="scan",default=False,help="Scan for & catalogue media")
     opg_mode.add_option('--ssonly',action="store_const",dest="run.mode",const="ssonly",default=False,help="Capture screenshot only")
     opg_mode.add_option('-d','--server',action="store_const",dest="run.mode",const="srv",default=False,help="Run as a daemon (API server)")
+    opg_mode.add_option('--set',action="store_const",dest="run.mode",const="set",default=False,help="Set overrides")
 
     # Scanning options
     opg_scan = optparse.OptionGroup(oparser, "Scanning", "Options for media scanner")
@@ -199,14 +200,19 @@ def parse_cli():
     opg_version.add_option('--vername',action="store",dest="vid.vername",default=False,metavar="NAME",help="Specify version name")
 
     # Metadata options
-    opg_meta = optparse.OptionGroup(oparser, "Metadata", "Options for specifying additional metadata which will be included in the database entry for this video")
+    opg_meta = optparse.OptionGroup(oparser, "Metadata & Overrides", "Options for specifying additional metadata which will be included in the database entry for this video. Also used for setting overrides with --set mode.")
     opg_meta.add_option('--title',action="store",dest="run.title",default=False,metavar="VAL",help="Metadata: Episode/Video Title")
-    opg_meta.add_option('--series',action="store",dest="run.series",default=False,metavar="VAL",help="Metadata: Series Title")
-    opg_meta.add_option('--episode',action="store",dest="run.episode",default=False,metavar="NUM",help="Metadata: Episode Number")
-    opg_meta.add_option('--season',action="store",dest="run.season",default=False,metavar="NUM",help="Metadata: Season Number")
-    opg_meta.add_option('--special',action="store",dest="run.special",default=False,metavar="VAL",help="Metadata: Special Episode Title")
-    opg_meta.add_option('--fansub',action="store",dest="run.fansub",default=False,metavar="GROUP",help="Metadata: Fansub Group Name")
     opg_meta.add_option('--dub',action="store",dest="run.dub",default=False,metavar="LANG",help="Metadata: Dub Language")
+    opg_meta.add_option('--special',action="store",dest="run.special",default=False,metavar="VAL",help="Metadata: Special Episode Title")
+    opg_meta.add_option('--series',action="store",dest="run.series",default=False,metavar="VAL",help="Series Title")
+    opg_meta.add_option('--episode',action="store",dest="run.episode",default=False,metavar="NUM",help="Episode Number")
+    opg_meta.add_option('--season',action="store",dest="run.season",default=False,metavar="NUM",help="Season Number")
+    opg_meta.add_option('--fansub',action="store",dest="run.fansub",default=False,metavar="GROUP",help="Fansub Group Name")    
+    opg_meta.add_option('--tvdb',action="store",dest="run.tvdb_id",default=False,metavar="ID",help="TheTVDb ID")
+    opg_meta.add_option('--mal',action="store",dest="run.mal_id",default=False,metavar="ID",help="MyAnimeList ID")
+    opg_meta.add_option('--tdex',action="store",dest="run.tdex_id",default=False,metavar="ID",help="Overrides: tdex_id")
+    opg_meta.add_option('--ignore',action="store_true",dest="run.ignore",default=False,help="Overrides: Set 'ignore' flag")
+    opg_meta.add_option('--clear',action="store_true",dest="run.ovr_clear",default=False,help="Overrides: Clear all overrides")
 
     # Daemon/Server options
     opg_srv = optparse.OptionGroup(oparser, "Daemon", "Options that apply when XBake is running as a daemon (server mode)")
@@ -279,6 +285,11 @@ if __name__ == '__main__':
         rcode = mscan.run(xsetup.config['run']['infile'],xsetup.config['run']['outfile'])
     elif xsetup.config['run']['mode'] == "srv":
         daemon.start(xsetup.config['srv']['iface'],xsetup.config['srv']['port'],xsetup.config['srv']['debug'])
+    elif xsetup.config['run']['mode'] == "set":
+        if xsetup.config['run']['ovr_clear']:
+            rcode = mscan.unsetter(xsetup.config['run']['infile'])
+        else:
+            rcode = mscan.setter(xsetup.config['run']['infile'])
     else:
         oparser.print_help()
         rcode = 250

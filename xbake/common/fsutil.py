@@ -56,3 +56,19 @@ def xattr_set(xfile,xsetter):
 			return False
 
 	return True
+
+
+def xattr_del(xfile,xsetter):
+	"""
+	Remove extended file attributes
+	Accepts a list/array with attrib names that are not prefixed with the 'user.' namespace
+	"""
+	for k in xsetter:
+		try:
+			xattr.removexattr(xfile, 'user.'+str(k))
+		except Exception as e:
+			logthis("Failed to remove extended file attributes for",suffix=xfile,loglevel=LL.WARNING)
+			logthis("xattr:",suffix=e,loglevel=LL.WARNING)
+			return False
+
+	return True

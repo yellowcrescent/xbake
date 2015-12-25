@@ -153,6 +153,42 @@ def run(infile,outfile=False,conmode=CONM.FILE,dreflinks=True,**kwargs):
         logthis("*** Scanning task failed.",loglevel=LL.ERROR)
         return 50
 
+# run config setting map for xattribs
+setmap =    {
+                'ignore':   "xbake.ignore",
+                'series':   "media.seriesname",
+                'season':   "media.season",
+                'episode':  "media.episode",
+                'tvdb_id':  "media.xref.tvdb",
+                'mal_id':   "media.xref.mal",
+                'tdex_id':  "xbake.tdex",
+                'fansub':   "media.fansub"
+            }
+
+def setter(infile):
+    """
+    Set overrides for a file or directory
+    """
+    global setmap
+    conf = __main__.xsetup.config
+
+    setout = {}
+    for k,v in setmap.iteritems():
+        if conf['run'].get(k,False):
+            setout[v] = conf['run'][k]
+
+    logthis("Setting overrides:\n",suffix=print_r(setout),loglevel=LL.VERBOSE)
+    fsutil.xattr_set(infile,setout)
+    return 0
+
+def unsetter(infile):
+    """
+    Remove overrides for a file or directory
+    """
+    dlist = list(fsutil.xattr_get(infile))
+    logthis("Removing overrides:\n",suffix=print_r(dlist),loglevel=LL.VERBOSE)
+    fsutil.xattr_del(infile,dlist)
+    return 0
 
 def scan_dir(dpath,dreflinks=True,mforce=False,nochecksum=False,savechecksum=True):
     """
