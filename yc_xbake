@@ -38,7 +38,7 @@ oparser = None
 class xsetup:
     """Contains version information and globals"""
     ## Version info
-    version = "0.10.174"
+    version = "0.10.175"
     vdate   = "25 Dec 2015"
 
     config   =  None
@@ -286,7 +286,7 @@ if __name__ == '__main__':
     elif xsetup.config['run']['mode'] == "srv":
         daemon.start(xsetup.config['srv']['iface'],xsetup.config['srv']['port'],xsetup.config['srv']['debug'])
     elif xsetup.config['run']['mode'] == "set":
-        if xsetup.config['run']['ovr_clear']:
+        if xsetup.config['run'].get('ovr_clear',False):
             rcode = mscan.unsetter(xsetup.config['run']['infile'])
         else:
             rcode = mscan.setter(xsetup.config['run']['infile'])

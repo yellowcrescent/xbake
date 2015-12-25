@@ -179,6 +179,7 @@ def setter(infile):
 
     logthis("Setting overrides:\n",suffix=print_r(setout),loglevel=LL.VERBOSE)
     fsutil.xattr_set(infile,setout)
+    logthis("Overrides set OK.",ccode=C.GRN,loglevel=LL.INFO)
     return 0
 
 def unsetter(infile):
@@ -188,6 +189,7 @@ def unsetter(infile):
     dlist = list(fsutil.xattr_get(infile))
     logthis("Removing overrides:\n",suffix=print_r(dlist),loglevel=LL.VERBOSE)
     fsutil.xattr_del(infile,dlist)
+    logthis("Overrides cleared.",ccode=C.GRN,loglevel=LL.INFO)
     return 0
 
 def scan_dir(dpath,dreflinks=True,mforce=False,nochecksum=False,savechecksum=True):
