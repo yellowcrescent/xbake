@@ -196,7 +196,6 @@ def scan_dir(dpath,dreflinks=True,mforce=False,nochecksum=False,savechecksum=Tru
     """
     Scan a directory recursively; follows symlinks by default
     """
-
     ddex = {}
     new_files = 0
 
@@ -263,7 +262,7 @@ def scan_single(dfile,mforce=False,nochecksum=False,savechecksum=True):
     new_files = 0
 
     # Parse overrides for directory the file is in
-    tdir = os.path.dirname(dfile)
+    tdir = os.path.dirname(os.path.realpath(dfile))
     ovrx = parse_xattr_overrides(tdir)
     ovrx.update(parse_overrides(tdir))
     ovrx = clean_overrides(ovrx)
