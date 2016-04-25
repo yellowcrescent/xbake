@@ -105,7 +105,7 @@ def to_mongo(indata,moncon):
     # Series Data
     logthis("Inserting series data into Mongo...",loglevel=LL.VERBOSE)
     for tk,tss in enumerate(slist):
-        # Process each series        
+        # Process each series
         tssid = tss.get('_id')
         logthis("** Series:",prefix=tssid,suffix=tss.get("title",tssid),loglevel=LL.DEBUG)
         thisup = int(tss.get("lastupdated",0))
@@ -161,7 +161,7 @@ def to_mongo(indata,moncon):
             lastup = -1
         logthis("-- This Updated:",prefix=tssid,suffix="%s (%d)" % (datetime.utcfromtimestamp(thisup).strftime("%d %b %Y %H:%M:%S"), thisup),loglevel=LL.DEBUG)
 
-        # Check if this entry is newer than the existing one        
+        # Check if this entry is newer than the existing one
         if thisup > lastup:
             try:
                 # Use dict.update() so we can retain extra fields for entries being updated
@@ -191,7 +191,7 @@ def to_mongo(indata,moncon):
 
         # Check if unchanged
         if fdata['status'] == "unchanged":
-            logthis("File already exists, and is unchanged. Skipping.",loglevel=LL.VERBOSE)            
+            logthis("File already exists, and is unchanged. Skipping.",loglevel=LL.VERBOSE)
             up2dater['files']['nc'] += 1
             continue
 
@@ -348,7 +348,7 @@ def find_matching_episode(sdex,fpinfo):
     """
     episode_id = int(fpinfo.get('episode',0))
     season_id = int(fpinfo.get('season',0))
-    for epi,epdata in enumerate(sdex['episodes']):
+    for epi,epdata in enumerate(sdex.get('episodes',[])):
         if int(epdata['SeasonNumber']) == season_id:
             if int(epdata['EpisodeNumber']) == episode_id:
                 return epdata['_id']

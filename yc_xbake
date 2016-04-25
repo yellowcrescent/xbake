@@ -38,8 +38,8 @@ oparser = None
 class xsetup:
     """Contains version information and globals"""
     ## Version info
-    version = "0.10.175"
-    vdate   = "25 Dec 2015"
+    version = "0.10.176"
+    vdate   = "24 Apr 2016"
 
     config   =  None
     lconfig  =  None
@@ -207,7 +207,7 @@ def parse_cli():
     opg_meta.add_option('--series',action="store",dest="run.series",default=False,metavar="VAL",help="Series Title")
     opg_meta.add_option('--episode',action="store",dest="run.episode",default=False,metavar="NUM",help="Episode Number")
     opg_meta.add_option('--season',action="store",dest="run.season",default=False,metavar="NUM",help="Season Number")
-    opg_meta.add_option('--fansub',action="store",dest="run.fansub",default=False,metavar="GROUP",help="Fansub Group Name")    
+    opg_meta.add_option('--fansub',action="store",dest="run.fansub",default=False,metavar="GROUP",help="Fansub Group Name")
     opg_meta.add_option('--tvdb',action="store",dest="run.tvdb_id",default=False,metavar="ID",help="TheTVDb ID")
     opg_meta.add_option('--mal',action="store",dest="run.mal_id",default=False,metavar="ID",help="MyAnimeList ID")
     opg_meta.add_option('--tdex',action="store",dest="run.tdex_id",default=False,metavar="ID",help="Overrides: tdex_id")
