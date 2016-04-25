@@ -213,24 +213,18 @@ def to_mongo(indata,moncon):
 
         # Don't overwrite these values if entry already exists
         if not exist_entry:
-            # XXX-TODO: Why in the hell don't we just query mongo for every entry?
-            # Check if series info was updated as part of this submission or scan
-            if indata['series'].has_key(fdata['tdex_id']):
-                thisf['series_id'] = indata['series'][fdata['tdex_id']].get('_id',None)
-                thisf['episode_id'] = find_matching_episode(indata['series'][fdata['tdex_id']], fdata['fparse'])
-            else:
-                # Query Mongo for matching series and episode IDs
-                xepi_info = None
-                xser_info = monjer.findOne("series", { 'norm_id': fdata['tdex_id'] })
-                if xser_info:
-                    xepi_info = monjer.findOne("episodes", { 'sid': xser_info['_id'], 'EpisodeNumber': str(fdata['fparse']['episode']), 'SeasonNumber': str(fdata['fparse']['season']) })
+            # Query Mongo for matching series and episode IDs
+            xepi_info = None
+            xser_info = monjer.findOne("series", { 'norm_id': fdata['tdex_id'] })
+            if xser_info:
+                xepi_info = monjer.findOne("episodes", { 'sid': xser_info['_id'], 'EpisodeNumber': str(fdata['fparse']['episode']), 'SeasonNumber': str(fdata['fparse']['season']) })
 
-                if xepi_info:
-                    thisf['series_id'] = xser_info['_id']
-                    thisf['episode_id'] = xepi_info['_id']
-                else:
-                    thisf['series_id'] = None
-                    thisf['episode_id'] = None
+            if xepi_info:
+                thisf['series_id'] = xser_info['_id']
+                thisf['episode_id'] = xepi_info['_id']
+            else:
+                thisf['series_id'] = None
+                thisf['episode_id'] = None
 
         # Create location for this source
         if not thisf.has_key('location'):

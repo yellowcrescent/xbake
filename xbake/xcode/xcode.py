@@ -388,12 +388,13 @@ def transcode(infile,outfile=None):
     ffmpeg.run(ffoptions,(not conf['xcode']['show_ffmpeg']))
 
     ## Cleanup
-    logthis("Removing font and subtitle files...",loglevel=LL.VERBOSE)
-    os.remove(subfile)
-    if not conf['xcode']['fontsave']:
-        for ff in fontlist:
-            if conf['xcode']['fontdir']: os.remove(os.path.expanduser(conf['xcode']['fontdir']).rstrip('/') + "/" + ff)
-            else: os.remove(ff)
+    if trueifset(conf['run']['bake'],typematch=True):
+        logthis("Removing font and subtitle files...",loglevel=LL.VERBOSE)
+        os.remove(subfile)
+        if not conf['xcode']['fontsave']:
+            for ff in fontlist:
+                if conf['xcode']['fontdir']: os.remove(os.path.expanduser(conf['xcode']['fontdir']).rstrip('/') + "/" + ff)
+                else: os.remove(ff)
 
     logthis("Transcoding complete",ccode=C.GRN,loglevel=LL.INFO)
 

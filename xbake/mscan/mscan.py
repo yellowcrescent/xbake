@@ -244,13 +244,9 @@ def scan_dir(dpath,dreflinks=True,mforce=False,nochecksum=False,savechecksum=Tru
                 continue
 
             # Create copy of override object and strip-out unneeded values and flags
-            ovrx_sub = copy(ovrx)
-            if ovrx_sub.has_key('ignore'): del(ovrx_sub['ignore'])
-            if ovrx_sub.has_key('md5'): del(ovrx_sub['md5'])
-            if ovrx_sub.has_key('crc32'): del(ovrx_sub['crc32'])
-            if ovrx_sub.has_key('ed2k'): del(ovrx_sub['ed2k'])
+            ovrx_sub = clean_overrides(ovrx)
 
-            # Get file properties            
+            # Get file properties
             dasc = scanfile(xvreal,ovrx_sub,mforce,nochecksum)
             if dasc:
                 ddex[xv] = dasc
@@ -265,7 +261,14 @@ def scan_single(dfile,mforce=False,nochecksum=False,savechecksum=True):
     """
     ddex = {}
     new_files = 0
-    dasc = scanfile(dfile,mforce=mforce,nochecksum=nochecksum,savechecksum=savechecksum)
+
+    # Parse overrides for directory the file is in
+    tdir = os.path.dirname(dfile)
+    ovrx = parse_xattr_overrides(tdir)
+    ovrx.update(parse_overrides(tdir))
+    ovrx = clean_overrides(ovrx)
+
+    dasc = scanfile(dfile,ovrx=ovrx,mforce=mforce,nochecksum=nochecksum,savechecksum=savechecksum)
     if dasc:
         ddex[dfile] = dasc
         new_files += 1
@@ -280,7 +283,7 @@ def scanfile(rfile,ovrx={},mforce=False,nochecksum=False,savechecksum=True):
     mediainfo and container, video, audio, subtitle track info, and chapter data extracted
     """
     dasc = {}
-    
+
     # get file parts
     xvreal = rfile
     tdir,xv = os.path.split(xvreal)
@@ -557,3 +560,14 @@ def check_overrides(ovx,cfile):
                     return True
     return False
 
+
+def clean_overrides(ovrx):
+    """
+    Remove unnecessary keys from overrides structure; return new cleaned copy
+    """
+    ovrx_sub = copy(ovrx)
+    if ovrx_sub.has_key('ignore'): del(ovrx_sub['ignore'])
+    if ovrx_sub.has_key('md5'): del(ovrx_sub['md5'])
+    if ovrx_sub.has_key('crc32'): del(ovrx_sub['crc32'])
+    if ovrx_sub.has_key('ed2k'): del(ovrx_sub['ed2k'])
+    return ovrx_sub

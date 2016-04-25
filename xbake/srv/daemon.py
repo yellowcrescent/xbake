@@ -142,7 +142,7 @@ def route_root():
                 'version': __main__.xsetup.version,
                 'date': __main__.xsetup.vdate,
                 'author': "J. Hipps <jacob@ycnrg.org>",
-                'copyright': "Copyright (c) 2013-2015 J. Hipps/Neo-Retro Group",
+                'copyright': "Copyright (c) 2013-2016 J. Hipps/Neo-Retro Group",
                 'license': "MIT"
             }
     return dresponse(rinfo)
@@ -176,7 +176,7 @@ def pidfile_set():
     try:
         fo = open(pfname,"w")
         fo.write("%d\n" % os.getpid())
-        fo.close()        
+        fo.close()
     except:
         logthis("Failed to write data to PID file:",suffix=pfname,loglevel=LL.ERROR)
         failwith(PROCFAIL,"Ensure write permission at the PID file location.")
