@@ -35,6 +35,7 @@ class bpath:
     mepath = None
     impath = None
     wppath = None
+    rhash  = None
 
 def locate(prog,isFatal=True):
     """
@@ -67,6 +68,7 @@ def locateAll():
     bpath.mepath = locate('mkvextract')
     bpath.impath = locate('convert')
     bpath.wppath = locate('cwebp')
+    bpath.rhash  = locate('rhash')
 
 def version():
     """

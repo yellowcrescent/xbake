@@ -6,9 +6,9 @@
 # XBake: Transcoder
 #
 # @author   J. Hipps <jacob@ycnrg.org>
-# @repo     https://bitbucket.org/yellowcrescent/yc_cpx
+# @repo     https://bitbucket.org/yellowcrescent/yc_xbake
 #
-# Copyright (c) 2015 J. Hipps / Neo-Retro Group
+# Copyright (c) 2015-2016 J. Hipps / Neo-Retro Group
 #
 # https://ycnrg.org/
 #
@@ -24,9 +24,7 @@ import time
 import subprocess
 import enzyme
 
-# Logging & Error handling
-from xbake.common.logthis import C,LL,logthis,ER,failwith,loglevel,print_r
-
+from xbake.common.logthis import *
 from xbake.xcode import ffmpeg
 from xbake.mscan import util
 from xbake.common import db
@@ -390,11 +388,23 @@ def transcode(infile,outfile=None):
     ## Cleanup
     if trueifset(conf['run']['bake'],typematch=True):
         logthis("Removing font and subtitle files...",loglevel=LL.VERBOSE)
-        os.remove(subfile)
+        try:
+            os.remove(subfile)
+        except Exception as e:
+            logexc(e,"Unable to remove subfile")
+
         if not conf['xcode']['fontsave']:
             for ff in fontlist:
-                if conf['xcode']['fontdir']: os.remove(os.path.expanduser(conf['xcode']['fontdir']).rstrip('/') + "/" + ff)
-                else: os.remove(ff)
+                if conf['xcode']['fontdir']:
+                    try:
+                        os.remove(os.path.expanduser(conf['xcode']['fontdir']).rstrip('/') + "/" + ff)
+                    except Exception as e:
+                        logexc(e,"Unable to remove font from fontdir (%s)" % (ff))
+                else:
+                    try:
+                        os.remove(ff)
+                    except Exception as e:
+                        logexc(e,"Unable to remove font (%s)" % (ff))
 
     logthis("Transcoding complete",ccode=C.GRN,loglevel=LL.INFO)
 

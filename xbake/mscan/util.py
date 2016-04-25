@@ -27,12 +27,9 @@ import grp
 import hashlib
 from pymediainfo import MediaInfo
 
-# Logging & Error handling
-from xbake.common.logthis import C,LL,logthis,ER,failwith,loglevel,print_r
-
+from xbake.common.logthis import *
 from xbake.common import fsutil
-
-rhpath = '/usr/bin/rhash'
+from xbake.xcode.ffmpeg import bpath  # FIXME
 
 def md5sum(fname):
     return rhash(fname, "md5")['md5']
@@ -49,7 +46,7 @@ def rhash(infile,hlist):
     hxpf = ""
     for i in hxlist:
         hxpf += "%%{%s} " % i
-    rout = subprocess.check_output([rhpath,'--printf',hxpf,infile])
+    rout = subprocess.check_output([bpath.rhash,'--printf',hxpf,infile])
     rolist = rout.split(' ')
     hout = {}
     k = 0
@@ -203,7 +200,7 @@ def mediainfo(fname):
                         tblock[tname] = int(time.mktime(time.strptime(tval,'%Z %Y-%m-%d %H:%M:%S')))
                     else:
                         failwith(ER.NOTIMPL, "Specified tcmd opcode not implemented.")
-                except Exception as e:                    
+                except Exception as e:
                     logthis("Failed to parse mediainfo output:",prefix=tname,suffix=e,loglevel=LL.WARNING)
                     continue
 

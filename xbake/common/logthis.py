@@ -155,6 +155,12 @@ def logthis(logline,loglevel=LL.DEBUG,prefix=None,suffix=None,ccode=None):
     if g_loglevel >= loglevel:
         sys.stdout.write(finline)
 
+def logexc(e,msg,prefix=None):
+    """log exception"""
+    if msg: msg += ": "
+    suffix = C.WHT + u"[" + C.YEL + str(e.__class__.__name__) + C.WHT + u"] " + C.YEL + str(e)
+    logthis(msg,LL.ERROR,prefix,suffix)
+
 def loglevel(newlvl=None):
     global g_loglevel
     if newlvl:
