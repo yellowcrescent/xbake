@@ -155,11 +155,15 @@ def logthis(logline,loglevel=LL.DEBUG,prefix=None,suffix=None,ccode=None):
     if g_loglevel >= loglevel:
         sys.stdout.write(finline)
 
+    if loglevel <= LL.ERROR:
+        tstatus('error', msg="%s %s" % (logline, suffix))
+
 def logexc(e,msg,prefix=None):
     """log exception"""
     if msg: msg += ": "
     suffix = C.WHT + u"[" + C.YEL + str(e.__class__.__name__) + C.WHT + u"] " + C.YEL + str(e)
     logthis(msg,LL.ERROR,prefix,suffix)
+    tstatus('exception', msg=msg, eclass=e.__name__, prefix=prefix)
 
 def loglevel(newlvl=None):
     global g_loglevel
@@ -169,11 +173,21 @@ def loglevel(newlvl=None):
 
 def failwith(etype,errmsg):
     logthis(errmsg,loglevel=LL.ERROR)
+    tstatus('fail', etype=ER.lname[etype], msg=errmsg)
 
     raise xbError(etype)
 
 def exceptionHandler(exception_type, exception, traceback):
+    tstatus('exception', etype=exception_type.__name__, msg=exception)
     print "%s: %s" % (exception_type.__name__, exception)
 
 def print_r(ind):
     return json.dumps(ind,indent=4,separators=(',', ': '))
+
+def tstatus(msgtype, **kwargs):
+    """output json object with update data"""
+    if __main__.xsetup.config['run']['tsukimi']:
+        xout = { 'msgtype': msgtype }
+        xout.update(kwargs)
+        sys.stderr.write(json.dumps(xout))
+        sys.stderr.flush()

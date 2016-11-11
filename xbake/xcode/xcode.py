@@ -300,7 +300,7 @@ def transcode(infile,outfile=None):
     vinfo.aud.channels = vinfo.aud.tdata['channels']
 
     # Determine if we need to transcode the audio
-    if conf['xcode']['acopy'].lower() == 'auto':
+    if str(conf['xcode']['acopy']).lower() == 'auto':
         # stream copy apparently only works for the default track
         if vinfo.aud.type == 'A_AAC' and vinfo.aud.tdata['default']:
             vinfo.aud.copy = True

@@ -8,7 +8,7 @@
 # @author   J. Hipps <jacob@ycnrg.org>
 # @repo     https://bitbucket.org/yellowcrescent/yc_xbake
 #
-# Copyright (c) 2013-2015 J. Hipps / Neo-Retro Group
+# Copyright (c) 2013-2016 J. Hipps / Neo-Retro Group
 #
 # https://ycnrg.org/
 #
@@ -37,8 +37,8 @@ oparser = None
 class xsetup:
     """Contains version information and globals"""
     ## Version info
-    version = "0.10.179"
-    vdate   = "25 Apr 2016"
+    version = "0.10.180"
+    vdate   = "01 May 2016"
 
     config   =  None
     lconfig  =  None
@@ -50,7 +50,8 @@ class xsetup:
                         'id': None,
                         'bake': False,
                         'vscap': None,
-                        'single': False
+                        'single': False,
+                        'tsukimi': False
                     },
                     'core': {
                         'loglevel': LL.INFO
@@ -149,9 +150,11 @@ def parse_cli():
 
     # General options
     oparser.add_option('-v', '--verbose', action="count", dest="run.verbose", help="Increase logging verbosity (-v Verbose, -vv Debug, -vvv Debug2)")
+    oparser.add_option('-q', '--quiet', action="store_true", dest="run.quiet", help="Silence all log output except critial errors")
     oparser.add_option('-L','--loglevel', action="store", dest="core.loglevel", default=False,metavar="NUM", help="Logging output verbosity (4=error,5=warning,6=info,7=verbose,8=debug,9=debug2)")
     oparser.add_option('-i','--infile', action="store", dest="run.infile", default=False,metavar="PATH", help="Input file or directory")
     oparser.add_option('-o','--out', action="store", dest="run.outfile", default=False,metavar="FILE", help="Output file")
+    oparser.add_option('-t','--tsukimi',action="store_true",dest="run.tsukimi",default=False,help="Tsukimi compat mode")
 
     # Mode selection options
     opg_mode = optparse.OptionGroup(oparser, "Mode Selection", "Choose operations mode for XBake (required). These options are mutually-exclusive.")
@@ -193,7 +196,7 @@ def parse_cli():
 
     # Versioning options
     opg_version = optparse.OptionGroup(oparser, "ID & Version Info", "Options for file ID and encode versioning")
-    opg_version.add_option('-q','--id',action="store",dest="run.id",default=False,metavar="ID",help="Specify file ID; metadata is pulled from database")
+    opg_version.add_option('--id',action="store",dest="run.id",default=False,metavar="ID",help="Specify file ID; metadata is pulled from database")
     opg_version.add_option('-A','--autoid',action="store_true",dest="vid.autoid",default=False,help="Calculate ID from MD5 checksum (use for existing entries)")
     opg_version.add_option('-H','--location',action="store",dest="vid.location",default=False,metavar="HOSTKEY",help="Specify source location key (hostname with underscores)")
     opg_version.add_option('--vername',action="store",dest="vid.vername",default=False,metavar="NAME",help="Specify version name")
@@ -243,6 +246,9 @@ def parse_cli():
         vout['core.loglevel'] = vout['run.verbose']
     if vout['run.verbose'] or vout['core.loglevel']:
         loglevel(int(vout['core.loglevel']))
+    if vout['run.quiet']:
+        vout['core.loglevel'] = LL.ERROR
+        loglevel(int(vout['core.loglevel']))
 
     return vout
 
@@ -268,6 +274,7 @@ if __name__ == '__main__':
     ffmpeg.locateAll()
     ffver = ffmpeg.version()
     logthis("FFmpeg Version:",suffix="%s (%s)" % (ffver['version'],ffver['date']),loglevel=LL.VERBOSE)
+    tstatus('version', xbake_version=xsetup.version, xbake_date=xsetup.vdate, ffmpeg=ffver, path=os.environ['PATH'])
 
     # Ready
     logthis("Configuration done. xsetup.config =",suffix=xsetup.config,loglevel=LL.DEBUG)
@@ -280,6 +287,8 @@ if __name__ == '__main__':
     rcode = 1
     if xsetup.config['run']['mode'] == "xcode":
         rcode = xcode.run(xsetup.config['run']['infile'],xsetup.config['run']['outfile'],xsetup.config['vid']['vername'])
+    elif xsetup.config['run']['mode'] == "ssonly":
+        rcode = xcode.ssonly(xsetup.config['run']['infile'])
     elif xsetup.config['run']['mode'] == "scan":
         rcode = mscan.run(xsetup.config['run']['infile'],xsetup.config['run']['outfile'])
     elif xsetup.config['run']['mode'] == "srv":

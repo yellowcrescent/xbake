@@ -1,0 +1,243 @@
+###############################################################################
+##
+## xbake.conf
+## YC XBake: Configuration File
+##
+###############################################################################
+
+[core]
+## loglevel:        Verbosity of logging output
+##                  4=error,5=warning,6=info,7=verbose,8=debug,9=debug2
+##                  default: 6 (info)
+# loglevel = 6
+
+[vid]
+## autoid:          Determine ID of source file via MD5 checksum
+##                  default: 1 (enabled)
+# autoid = 1
+
+[run]
+## outfile:         Location to save output files.
+##                  (should be a directory that exists)
+##                  default: (not set)
+# outfile = "/var/www/mediasrv/vod"
+
+[vscap]
+## basedir:         Base path to save screenshots.
+##                  There should also be "480", "720", and "full"
+##                  subdirectories inside this directory.
+##                  default: . (current directory)
+# basedir = "/var/www/mediasrv/img"
+
+## webp_m:          WebP compression method
+##                  (0=fast, 6=slowest)
+##                  default: 6
+# webp_m = 6
+
+## webp_q:          WebP quality factor
+##                  (0:small..100:big)
+##                  default: 90
+# webp_q = 90
+
+[scan]
+## mforce:          Force rescan all files, even if no changes detected
+##                  default: 0 (disabled)
+# mforce = 0
+
+## output:          Location to save or send scan result output.
+##                  This can either be the path to a file, socket, or fifo,
+##                  a mongodb:// connection string, or an http:// or https://
+##                  URL of a running XBake daemon
+##                  default: (not set, which dumps JSON data to stdout)
+# output = "/tmp/dump.json"
+# output = "/var/www/mediasrv/run.sock"
+# output = "http://mediasrv.example.com:7037"
+# output = "mongodb://localhost:27017/xbake"
+
+## scraper:         Scraper to use when populating series information
+##                  default: "tvdb"
+# scraper = "tvdb"
+
+## savechecksum:    Save checksums to extended file attributes.
+##                  This sets user.checksum.md5, ed2k, and crc32 xattribs
+##                  for each file scanned. On subsequent scans, the checksums
+##                  are pulled from the xattribs if the inode/mtime/size
+##                  matches the last scan, and this massively decreases
+##                  scan time on subsequent passes.
+##                  default: 1 (enabled)
+# savechecksum = 1
+
+## nochecksum:      Do not calculate checksums of files.
+##                  Since XBake uses the MD5 to identify each file, this option
+##                  is only useful for testing/troubleshooting
+##                  default: 0 (off)
+# nochecksum = 0
+
+[xcode]
+## libx264_preset:  Set the x264 preset to use when encoding.
+##                  available: ultrafast, superfast, veryfast, faster, fast,
+##                  medium, slow, slower, veryslow, placebo
+##                  <https://trac.ffmpeg.org/wiki/Encode/H.264>
+##                  default: "medium"
+# libx264_preset = "medium"
+
+## fontdir:         Directory to dump font attachments.
+##                  This is used when baking ASS subtitles that use embedded
+##                  fonts. It is important to choose a directory that will
+##                  be scanned by fontconfig, otherwise the fonts will not
+##                  be found by ffmpeg when encoding, and the titles will
+##                  look terrible. Most distros include ~/.fonts as a
+##                  search location, so that's why it's the default.
+##                  To use a different location, set this option, and
+##                  edit /etc/fonts/fonts.conf on your system. You
+##                  should take care that when adding a directory to fonts.conf
+##                  that it *only* contains fonts, and you don't add something
+##                  like your home directory (/home/user), since fontconfig
+##                  will search recursively for font files and cause you
+##                  problems!
+##                  default: "~/.fonts"
+# fontdir = "~/.fonts"
+
+## fontsave:        Do not remove any dumped fonts during cleanup.
+##                  When baking subtitles, font attachments from MKV files
+##                  are dumped to `fontdir`. Normally they are removed after
+##                  encoding is complete, unless this option is enabled.
+##                  default: 0 (off)
+# fontsave = 0
+
+## acopy:           Audio stream copy.
+##                  This should pretty much remain on "auto". Forcing
+##                  a stream copy when it is not possible (eg. trying
+##                  to force stream copy when the source has FLAC audio)
+##                  will cause ffmpeg to just fail. XBake will check the
+##                  source audio codec to determine if a stream copy is
+##                  possible (eg. the source codec is AAC).
+##                  default: "auto"
+# acopy = "auto"
+
+## scale:           Resize the video using the `scale` video filter
+##                  width:height
+##                  default: (not set, disabled)
+# scale = "1280:720"
+
+## downmix:         Downmix source audio to stereo.
+##                  This should usually be left at "auto". In auto mode,
+##                  XBake will downmix the audio if there are more than
+##                  2 channels in the selected audio track.
+##                  default: "auto"
+# downmix = "auto"
+
+## srt_style:       Set SubRip/SRT style options.
+##                  Sets the style to use on SRT subs via the force_style
+##                  filter option in ffmpeg.
+##                  <https://ffmpeg.org/ffmpeg-filters.html#subtitles>
+##                  default: "FontName=MyriadPro-Semibold,Outline=1,Shadow=1,FontSize=24"
+# srt_style = "FontName=MyriadPro-Semibold,Outline=1,Shadow=1,FontSize=24"
+
+## flv:             Output an FLV stream, rather than MP4
+##                  default: 0 (disabled)
+# flv = 0
+
+## subid:           Subtitle track ID
+##                  Should be "auto" in the config file, unless all of your
+##                  videos have subs with the same track number.
+##                  default: "auto"
+# subid = "auto"
+
+## subtype:         Subtitle Type
+##                  Subtitle type is detected via the codec ID automatically.
+##                  When a file has both SRT and ASS subs present, it allows
+##                  choosing one type over the other automatically (without
+##                  using --subid)
+# subtype = "ass"
+
+## abr:             Audio bitrate.
+##                  Set the AAC bitrate (in Kbps) when transcoding audio.
+##                  default: 128
+# abr = 128
+
+## crf:             x264 Constant Rate Factor (CRF)
+##                  Adjusts the CRF value used for encoding. The default
+##                  value of 20 is good for lower res video, but you may
+##                  want to increase it to 22~26 for 1080p video
+##                  that will be used for streaming (if bitrate/size
+##                  is a concern).
+##                  <http://slhck.info/articles/crf>
+##                  <https://trac.ffmpeg.org/wiki/Encode/H.264>
+##                  default: 20
+# crf = 20
+
+## show_ffmpeg:     Show ffmpeg output.
+##                  When disabled, output from ffmpeg during encoding is
+##                  inhibited. ffmpeg output is inhibited by default
+##                  when XBake is running as a daemon (unless in debug mode).
+##                  default: 1 (enabled)
+# show_ffmpeg = 1
+
+[mal]
+## user:            MyAnimeList username
+##                  default: (not set)
+# user = "mal_username"
+
+## password:        MyAnimeList password
+##                  default: (not set)
+# password = "mal_password"
+
+[ffmpeg]
+## path:            ffmpeg path
+##                  This is determined automatically and should only be set
+##                  if you're using a test, debug, or local install of ffmpeg
+##                  that has not been installed system-wide
+##                  default: (not set)
+# path = "/usr/bin/ffmpeg"
+
+[tvdb]
+## apikey:          TVDb API Key
+##                  theTVDb.com API key. Login or create an account on
+##                  thetvdb.com, then click the link to request API access
+##                  and you will be given an API key.
+##                  You *will* need to set this for the TVDb scraper to
+##                  do anything useful!
+##                  <http://thetvdb.com/wiki/index.php?title=Programmers_API>
+##                  default: (not set)
+# apikey = "your_api_key_here"
+
+## imgbase:         TVDb banner prefix [deprecated]
+##                  default: "http://thetvdb.com/banners"
+# imgbase = "http://thetvdb.com/banners"
+
+## mirror:          TVDb Mirror
+##                  default: "http://thetvdb.com"
+# mirror = "http://thetvdb.com"
+
+[srv]
+# xcode_scale_allowance = "10"
+# xcode_show_ffmpeg = 0
+# xfer_path = "/var/www/mediasrv/incoming"
+# xfer_hostonly = 0
+# port = 7037
+# iface = "0.0.0.0"
+# xcode_default_profile = "720p"
+# xcode_outpath = "."
+# shared_key = "this_is_a_secret_key"
+
+[mongo]
+# host = "localhost"
+# port = 27017
+# database = "xbake"
+
+[redis]
+# host = "localhost"
+# prefix = "xbake"
+# db = 6
+# port = 6379
+
+[hosts]
+# jotunn.example.com = 0
+# ragnarok.example.com = 1
+# thor.example.com = 20
+
+[profiles]
+480p = "height=480,width=854,aspect=16:9,crf=20,abr=128"
+720p = "height=720,width=1280,apsect=16:9,crf=24,abr=192"
+1080p = "height=1080,width=1920,aspect=16:9,crf=26,abr=192"

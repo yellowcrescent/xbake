@@ -24,7 +24,7 @@ import time
 import subprocess
 
 # Logging & Error handling
-from xbake.common.logthis import C,LL,logthis,ER,failwith,loglevel,print_r
+from xbake.common.logthis import *
 
 from xbake.mscan import scrapers
 
@@ -73,6 +73,7 @@ def series_scrape():
 			show_count -= 1
 			continue
 		# Execute chosen scraper
+		tstatus('series_scrape', scraper=cscraper, tdex_id=xsea, tdex_data=xsdat)
 		if cscraper == 'tvdb':
 			scrapers.tvdb(xsea,tdex)
 		elif cscraper == 'mal':
@@ -106,8 +107,8 @@ def normalize(xname):
 	"""
 	Normalize input string for use as a tdex_id
 	"""
-	nrgx = u'[\'`\-\?!%&\*@\(\)#:,\.\/\\;\+=\[\]\{\}\$\<\>]'
-	urgx = u'[ ★☆]'
+	nrgx = u'[`\-%&\*@\(\)#:,\/\\;\+=\[\]\{\}\$\<\>]'
+	urgx = u'[ ★☆\.\?\!\']'
 	return re.sub(urgx,'_',re.sub(nrgx,'', xname)).lower().strip()
 
 def get_tdex():

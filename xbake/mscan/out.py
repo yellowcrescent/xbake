@@ -85,7 +85,7 @@ def to_mongo(indata,moncon):
             indata['series'][sname]['episodes'][epnum]['_id'] = tep_id
             logthis("** Episode ID:",suffix=tep_id,loglevel=LL.DEBUG)
 
-            thisep['tvdb_id'] = epdata['id']
+            thisep['tvdb_id'] = epdata.get('id')
             thisep['sid'] = tser_id
             del(thisep['id'])
 
@@ -201,6 +201,7 @@ def to_mongo(indata,moncon):
             thisf = exist_entry
 
         thisf['status'] = fdata['status']
+        thisf['last_updated'] = fdata['last_updated']
         thisf['checksum'] = fdata['checksum']
         thisf['mediainfo'] = fdata['mediainfo']
         thisf['fparse'] = {
@@ -212,7 +213,7 @@ def to_mongo(indata,moncon):
         thisf['tdex_id'] = fdata['tdex_id']
 
         # Don't overwrite these values if entry already exists
-        if not exist_entry:
+        if not exist_entry or (thisf.get('series_id', None) is None or thisf.get('episode_id', None) is None):
             # Query Mongo for matching series and episode IDs
             xepi_info = None
             xser_info = monjer.findOne("series", { 'norm_id': fdata['tdex_id'] })
@@ -233,6 +234,7 @@ def to_mongo(indata,moncon):
         else:
             up2dater['files']['updated'] += 1
 
+        thisf['default_location'] = hostname
         thisf['location'][hostname] = {
                                         'tstamp': long(indata['scan']['tstamp']),
                                         'dpath': fdata['dpath'],

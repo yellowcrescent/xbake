@@ -24,13 +24,14 @@ import time
 import socket
 import subprocess
 import distance
+import arrow
 from copy import copy,deepcopy
 from urlparse import urlparse
 
 # Logging & Error handling
-from xbake.common.logthis import C,LL,logthis,ER,failwith,loglevel,print_r
+from xbake.common.logthis import *
 
-from xbake.xcode import ffmpeg
+from xbake.xcode import ffmpeg,xcode
 from xbake.mscan import util
 from xbake.mscan import out
 from xbake.common import db
@@ -53,10 +54,11 @@ class CONM:
 # File match regexes
 fregex = [
             "^(\[(?P<fansub>[^\]]+)\])[\s._]*(?P<series>.+?)(?:[\s._]-[\s._]|[\._])(?:(?P<special>(NCOP|NCED|OP|ED|PV|OVA|ONA|Special|Insert|Preview|Lite|Short)\s*-?\s*[0-9]{0,2})|(?:[eEpP]{2}[\s._]*)?(?P<epnum>[0-9]{1,3}))(?P<version>[vep]{1,2}[0-9]{1,2}([-,][0-9]{1,2})?)?",
-            "^(?P<series>.+?)(?P<season>[0-9]{1,2})x(?P<epnum>[0-9]{1,2})(.*)$",
-            "^(?P<series>.+)[\.\-_ ]SE?(?P<season>[0-9]{1,2})EP?(?P<epnum>[0-9]{1,2})(?:[\.\-_ ](?P<eptitle>.+?))?[\.\-_\[\( ]+(?:([0-9]{3,4}p|web|aac|bd|tv|hd|x?264)+)",
-            "^(?P<series>.+)[\._](?P<epnum>[0-9]{1,4})[\._](.*)$",
+            "^(\[(?P<fansub>[^\]]+)\])?[\s._]*(?P<series>.+?)(?P<season>[0-9]{1,2})x(?P<epnum>[0-9]{1,2})(.*)$",
+            "^(\[(?P<fansub>[^\]]+)\])?[\s._]*(?P<series>.+)[\.\-_ ]SE?(?P<season>[0-9]{1,2})EP?(?P<epnum>[0-9]{1,2})(?:[\.\-_ ](?P<eptitle>.+?))?[\.\-_\[\( ]+(?:([0-9]{3,4}p|web|aac|bd|tv|hd|x?264)+)",
+            "^(\[(?P<fansub>[^\]]+)\])?[\s._]*(?P<series>.+)[\._](?P<epnum>[0-9]{1,4})[\._](.*)$",
             "^(?P<series>.+?)[\-_ ](?P<epnum>[0-9]{2})[\-_ ](.*)$",
+            "^(\[(?P<fansub>[^\]]+)\])?[\s._]*(?P<series>.+)[\._ ]-[\._ ][sS](?P<season>[0-9]{1,2}) ?[eE](?P<epnum>[0-9]{1,2})(.*)$",
             "^(?P<series>.+)[sS](?P<season>[0-9]{1,2}) ?[eE](?P<epnum>[0-9]{1,2})(.*)$",
             "^(?P<series>.+?) (?P<season>[0-9]{1,2}) (?P<epnum>[0-9]{1,2}) (.*)$",
             "^(?P<series>.+) - (?P<epnum>[0-9]{1,2})(.*)$",
@@ -124,7 +126,8 @@ def run(infile,outfile=False,conmode=CONM.FILE,dreflinks=True,**kwargs):
     # Parse URLs
     ofp = urlparse(outfile)
 
-    if ofp.scheme == 'mongo':
+    tstatus('output', event='start', output=outfile)
+    if ofp.scheme == 'mongodb':
         # Write to Mongo
         logthis(">> Output driver: Mongo",loglevel=LL.VERBOSE)
         cmon = conf['mongo']
@@ -145,12 +148,15 @@ def run(infile,outfile=False,conmode=CONM.FILE,dreflinks=True,**kwargs):
 
     if ostatus['status'] == "ok":
         logthis("*** Scanning task completed successfully.",loglevel=LL.INFO)
+        tstatus('complete', status='ok', files=len(flist), series=len(mdb.get_tdex()))
         return 0
     elif ostatus['status'] == "warning":
         logthis("*** Scanning task completed, with warnings.",loglevel=LL.WARNING)
+        tstatus('complete', status='warning')
         return 49
     else:
         logthis("*** Scanning task failed.",loglevel=LL.ERROR)
+        tstatus('complete', status='fail')
         return 50
 
 # run config setting map for xattribs
@@ -293,6 +299,7 @@ def scanfile(rfile,ovrx={},mforce=False,nochecksum=False,savechecksum=True):
     tdir_parent = os.path.split(os.path.split(tdir)[0])[1]
 
     logthis("Examining file:",suffix=xv,loglevel=LL.INFO)
+    tstatus('scanfile', event='start', filename=xv)
 
     # Get xattribs
     fovr = {}
@@ -351,6 +358,11 @@ def scanfile(rfile,ovrx={},mforce=False,nochecksum=False,savechecksum=True):
     # Determine series information from path and filename
     dasc['fparse'],dasc['tdex_id'] = parse_episode_filename(dasc,fovr)
 
+    # Record last time this entry was updated (UTC)
+    last_up = arrow.utcnow().timestamp
+    logthis("last_updated =",suffix=last_up,loglevel=LL.DEBUG)
+    dasc['last_updated'] = last_up
+
     return dasc
 
 
@@ -374,7 +386,7 @@ def parse_episode_filename(dasc,ovrx={},single=False,longep=False):
                 if not single:
                     ldist = distance.nlevenshtein(dasc['dpath']['base'].lower(), mm['series'].lower())
                     if ldist < 0.26:
-                        sser = dasc['dpath']['base']
+                        sser = filter_fname(dasc['dpath']['base'])
                         logthis("Using directory name for series name (ldist = %0.3f)" % (ldist),loglevel=LL.DEBUG)
                     else:
                         sser = filter_fname(mm['series'])
@@ -395,7 +407,7 @@ def parse_episode_filename(dasc,ovrx={},single=False,longep=False):
                     sser = dasc['dpath']['base']
 
             # Parse out the fansub group name
-            if mm.has_key('fansub'):
+            if mm.get('fansub', None) is not None:
                 fansub = mm['fansub'].strip()
             else:
                 fansub = None

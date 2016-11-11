@@ -28,7 +28,7 @@ import subprocess
 import shutil
 
 # Logging & Error handling
-from xbake.common.logthis import C,LL,logthis,ER,failwith,loglevel,print_r
+from xbake.common.logthis import *
 
 class bpath:
     ffpath = None
@@ -41,7 +41,7 @@ def locate(prog,isFatal=True):
     """
     Locate path to a binary
     """
-    wiout = subprocess.check_output(['whereis',prog])
+    wiout = subprocess.check_output(['whereis', prog])
     bgrp = re.match('^[^:]+: (.+)$', wiout)
     if bgrp:
         gstr = bgrp.groups()[0]
