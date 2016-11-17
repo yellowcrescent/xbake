@@ -1,23 +1,19 @@
 #!/usr/bin/env python
 # coding=utf-8
-###############################################################################
-#
-# yc_xbake
-# YC XBake: Video file scanning, renaming, sub baking and transcoding utility
-#
-# @version  0.10
-# @author   J. Hipps <jacob@ycnrg.org>
-# @repo     https://bitbucket.org/yellowcrescent/yc_xbake
-#
-# Copyright (c) 2013-2015 J. Hipps / Neo-Retro Group
-#
-# https://ycnrg.org/
-#
-# @deps     xbake
-#
-###############################################################################
+# vim: set ts=4 sw=4 expandtab syntax=python:
+"""
 
-import __main__
+xbake.xcode.ffmpeg
+FFmpeg & friends interface
+
+@author   Jacob Hipps <jacob@ycnrg.org>
+@repo     https://git.ycnrg.org/projects/YXB/repos/yc_xbake
+
+Copyright (c) 2013-2016 J. Hipps / Neo-Retro Group, Inc.
+https://ycnrg.org/
+
+"""
+
 import sys
 import os
 import re
@@ -27,8 +23,8 @@ import time
 import subprocess
 import shutil
 
-# Logging & Error handling
 from xbake.common.logthis import *
+
 
 class bpath:
     ffpath = None
@@ -55,15 +51,15 @@ def locate(prog,isFatal=True):
             failwith(ER.DEPMISSING, "External dependency missing. Unable to continue. Aborting")
         return False
 
-def locateAll():
+def locateAll(xconfig):
     """
     Locate required binaries (ffmpeg, mkvextract, etc.)
     """
     bpath.ffpath = locate('ffmpeg')
     # check if ffmpeg path auto-detection is set to auto (ffmpeg.path = False)
     # if so, set the path in the ffmpeg option block
-    if __main__.xsetup.config['ffmpeg']['path'] == False:
-        __main__.xsetup.config['ffmpeg']['path'] = bpath.ffpath
+    if xconfig.ffmpeg['path'] == False:
+        xconfig.ffmpeg['path'] = bpath.ffpath
 
     bpath.mepath = locate('mkvextract')
     bpath.impath = locate('convert')

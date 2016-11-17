@@ -9,16 +9,20 @@ setup(
     author_email = "jacob@ycnrg.org",
     license = "MIT",
     description = "Tool for cataloging and transcoding video files",
-    keywords = "video scraper scanner catalog subtitles",
-    url = "https://bitbucket.org/yellowcrescent/yc_xbake/",
+    keywords = "video scraper scanner catalog subtitles transcode encode convert metadata",
+    url = "https://git.ycnrg.org/projects/YXB/repos/yc_xbake",
 
     packages = find_packages(),
-    scripts = ['yc_xbake'],
+    scripts = [],
 
-    install_requires = ['docutils>=0.3','setproctitle','pymongo>=3.0','redis>=2.10','pymediainfo>=1.4.0','enzyme>=0.4.1','distance>=0.1.3','requests>=2.2.1','xmltodict>=0.9.2','xattr>=0.7.8','flask>=0.10.1','lxml>=3.5.0','arrow>=0.7.0'],
+    install_requires = ['docutils','setproctitle','pymongo','redis','pymediainfo','enzyme','distance','requests','xmltodict','xattr','flask>=0.10.1','lxml','arrow>=0.7.0'],
 
     package_data = {
         '': [ '*.md' ],
+    },
+
+    entry_points = {
+        'console_scripts': [ 'xbake = xbake.cli:_main' ]
     }
 
     # could also include long_description, download_url, classifiers, etc.

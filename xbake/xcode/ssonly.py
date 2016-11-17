@@ -1,20 +1,19 @@
 #!/usr/bin/env python
 # coding=utf-8
-###############################################################################
-#
-# ssonly - xbake/xcode/ssonly.py
-# XBake: Screenshot Capture
-#
-# @author   J. Hipps <jacob@ycnrg.org>
-# @repo     https://bitbucket.org/yellowcrescent/yc_xbake
-#
-# Copyright (c) 2015-2016 J. Hipps / Neo-Retro Group
-#
-# https://ycnrg.org/
-#
-###############################################################################
+# vim: set ts=4 sw=4 expandtab syntax=python:
+"""
 
-import __main__
+xbake.xcode.ssonly
+Screenshot capture
+
+@author   Jacob Hipps <jacob@ycnrg.org>
+@repo     https://git.ycnrg.org/projects/YXB/repos/yc_xbake
+
+Copyright (c) 2013-2016 J. Hipps / Neo-Retro Group, Inc.
+https://ycnrg.org/
+
+"""
+
 import sys
 import os
 import re
@@ -32,43 +31,45 @@ from xbake.xcode.xcode import sscapture
 
 # Mongo object
 monjer = None
+config = None
 
-def run(infile,id=None,**kwargs):
+
+def run(xconfig):
     """
     Implements --ssonly mode
     """
-    global monjer
-    conf = __main__.xsetup.config
+    global monjer, config
+    config = xconfig
 
     # Check input filename
-    if not infile:
+    if not config.run['infile']:
         failwith(ER.OPT_MISSING, "option infile required (-i/--infile)")
     else:
-        if not os.path.exists(infile):
-            failwith(ER.OPT_BAD, "infile [%s] does not exist" % infile)
-        elif not os.path.isfile(infile):
-            failwith(ER.OPT_BAD, "infile [%s] is not a regular file" % infile)
+        if not os.path.exists(config.run['infile']):
+            failwith(ER.OPT_BAD, "infile [%s] does not exist" % config.run['infile'])
+        elif not os.path.isfile(config.run['infile']):
+            failwith(ER.OPT_BAD, "infile [%s] is not a regular file" % config.run['infile'])
 
     # Get video ID (MD5 sum by default)
-    if conf['run']['id']:
-        vinfo_id = conf['run']['id']
-    elif conf['vid']['autoid']:
-        vinfo_id = util.md5sum(infile)
+    if config.run['id']:
+        vinfo_id = config.run['id']
+    elif config.vid['autoid']:
+        vinfo_id = util.md5sum(config.run['infile'])
         logthis("MD5 Checksum:",suffix=vinfo.id,loglevel=LL.INFO)
     else:
         vinfo_id = None
 
     # Connect to Mongo
-    monjer = db.mongo(conf['mongo'])
+    monjer = db.mongo(config.mongo)
 
     # Grab the frame
-    if conf['run']['vscap']:
-        vc_offset = conf['run']['vscap']
+    if config.run['vscap']:
+        vc_offset = config.run['vscap']
     else:
         vc_offset = get_magic_offset(vinfo_id)
         logthis("No frame capture offset specified. Determining one automagically.", loglevel=LL.INFO)
 
-    vsdata = sscapture(infile,conf['run']['vscap'])
+    vsdata = sscapture(config.run['infile'],config.run['vscap'])
 
     # Update Mongo entry
     zdata = monjer.findOne('videos', { '_id': vinfo_id })

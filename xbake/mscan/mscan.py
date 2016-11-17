@@ -1,20 +1,19 @@
 #!/usr/bin/env python
 # coding=utf-8
-###############################################################################
-#
-# mscan - xbake/mscan/mscan.py
-# XBake: Media scanner
-#
-# @author   J. Hipps <jacob@ycnrg.org>
-# @repo     https://bitbucket.org/yellowcrescent/yc_xbake
-#
-# Copyright (c) 2015 J. Hipps / Neo-Retro Group
-#
-# https://ycnrg.org/
-#
-###############################################################################
+# vim: set ts=4 sw=4 expandtab syntax=python:
+"""
 
-import __main__
+xbake.mscan.mscan
+Media Scanner
+
+@author   Jacob Hipps <jacob@ycnrg.org>
+@repo     https://git.ycnrg.org/projects/YXB/repos/yc_xbake
+
+Copyright (c) 2013-2016 J. Hipps / Neo-Retro Group, Inc.
+https://ycnrg.org/
+
+"""
+
 import sys
 import os
 import re
@@ -23,20 +22,17 @@ import signal
 import time
 import socket
 import subprocess
-import distance
-import arrow
-from copy import copy,deepcopy
+from copy import copy, deepcopy
 from urlparse import urlparse
 
-# Logging & Error handling
+import distance
+import arrow
+
+from xbake import __version__, __date__
 from xbake.common.logthis import *
-
-from xbake.xcode import ffmpeg,xcode
-from xbake.mscan import util
-from xbake.mscan import out
-from xbake.common import db
-from xbake.common import fsutil
-
+from xbake.xcode import ffmpeg, xcode
+from xbake.mscan import util, out
+from xbake.common import db, fsutil
 from xbake.mscan import mdb
 from xbake.mscan.mdb import MCMP
 
@@ -70,29 +66,32 @@ fregex = [
 # File extension filter
 fext = re.compile('\.(avi|mkv|mpg|mpeg|wmv|vp8|ogm|mp4|mpv)',re.I)
 
-def run(infile,outfile=False,conmode=CONM.FILE,dreflinks=True,**kwargs):
+config = None
+
+# def run(infile,outfile=False,conmode=CONM.FILE,dreflinks=True,**kwargs):
+def run(xconfig):
     """
     Implements --scan mode
     """
-    global monjer
-    conf = __main__.xsetup.config
+    global config, monjer
+    config = xconfig
 
     # Check input filename
-    if not infile:
+    if not config.run['infile']:
         failwith(ER.OPT_MISSING, "option infile required (-i/--infile)")
     else:
-        if not os.path.exists(infile):
-            failwith(ER.OPT_BAD, "path/file [%s] does not exist" % (infile))
-        if conf['run']['single'] and not os.path.isfile(infile):
-            failwith(ER.OPT_BAD, "file [%s] is not a regular file; --single mode is used when scanning only one file" % (infile))
-        elif not conf['run']['single'] and not os.path.isdir(infile):
-            failwith(ER.OPT_BAD, "file [%s] is not a directory; use --single mode if scanning only one file" % (infile))
+        if not os.path.exists(config.run['infile']):
+            failwith(ER.OPT_BAD, "path/file [%s] does not exist" % (config.run['infile']))
+        if config.run['single'] and not os.path.isfile(config.run['infile']):
+            failwith(ER.OPT_BAD, "file [%s] is not a regular file; --single mode is used when scanning only one file" % (config.run['infile']))
+        elif not config.run['single'] and not os.path.isdir(config.run['infile']):
+            failwith(ER.OPT_BAD, "file [%s] is not a directory; use --single mode if scanning only one file" % (config.run['infile']))
 
     # Examine and enumerate files
-    if conf['run']['single']:
-        new_files,flist = scan_single(infile,conf['scan']['mforce'],conf['scan']['nochecksum'],conf['scan']['savechecksum'])
+    if config.run['single']:
+        new_files,flist = scan_single(config.run['infile'],config.scan['mforce'],config.scan['nochecksum'],config.scan['savechecksum'])
     else:
-        new_files,flist = scan_dir(infile,dreflinks,conf['scan']['mforce'],conf['scan']['nochecksum'],conf['scan']['savechecksum'])
+        new_files,flist = scan_dir(config.run['infile'],config.scan['follow_symlinks'],config.scan['mforce'],config.scan['nochecksum'],config.scan['savechecksum'])
 
     # Scrape for series information
     if new_files > 0:
@@ -103,9 +102,9 @@ def run(infile,outfile=False,conmode=CONM.FILE,dreflinks=True,**kwargs):
                 'hostname': socket.getfqdn(),
                 'tstamp': time.time(),
                 'duration': 0, # FIXME
-                'topmost': os.path.realpath(infile),
+                'topmost': os.path.realpath(config.run['infile']),
                 'command': ' '.join(sys.argv),
-                'version': __main__.xsetup.version
+                'version': __version__
             }
 
     # Build main output structure
@@ -116,31 +115,31 @@ def run(infile,outfile=False,conmode=CONM.FILE,dreflinks=True,**kwargs):
             }
 
     # Parse outfile
-    if not outfile:
-        outfile = conf['scan']['output']
+    if not config.run['outfile']:
+        config.run['outfile'] = config.scan['output']
 
     # If no file defined, or '-', write to stdout
-    if not outfile or outfile == '-':
-        outfile = '/dev/stdout'
+    if not config.run['outfile'] or config.run['outfile'] == '-':
+        config.run['outfile'] = '/dev/stdout'
 
     # Parse URLs
-    ofp = urlparse(outfile)
+    ofp = urlparse(config.run['outfile'])
 
-    tstatus('output', event='start', output=outfile)
+    tstatus('output', event='start', output=config.run['outfile'])
     if ofp.scheme == 'mongodb':
         # Write to Mongo
         logthis(">> Output driver: Mongo",loglevel=LL.VERBOSE)
-        cmon = conf['mongo']
+        cmon = config.mongo
         if ofp.hostname: cmon['hostname'] = ofp.hostname
         if ofp.port: cmon['port'] = ofp.port
         if ofp.path:
             cmon['database'] = ofp.path.split('/')[1]
-            if not cmon['database']: cmon['database'] = conf['mongo']['database']
+            if not cmon['database']: cmon['database'] = config.mongo['database']
         ostatus = out.to_mongo(odata,cmon)
     elif ofp.scheme == 'http' or ofp.scheme == 'https':
         # Send via HTTP(S) to a listening XBake daemon, or other web service
         logthis(">> Output driver: HTTP/HTTPS",loglevel=LL.VERBOSE)
-        ostatus = out.to_server(odata, outfile)
+        ostatus = out.to_server(odata, config.run['outfile'])
     else:
         # Write to file or stdout
         logthis(">> Output driver: File",loglevel=LL.VERBOSE)
@@ -171,27 +170,28 @@ setmap =    {
                 'fansub':   "media.fansub"
             }
 
-def setter(infile):
+def setter(xconfig):
     """
     Set overrides for a file or directory
     """
     global setmap
-    conf = __main__.xsetup.config
+    infile = xconfig.run['infile']
 
     setout = {}
     for k,v in setmap.iteritems():
-        if conf['run'].get(k,False):
-            setout[v] = conf['run'][k]
+        if config.run.get(k,False):
+            setout[v] = config.run[k]
 
     logthis("Setting overrides:\n",suffix=print_r(setout),loglevel=LL.VERBOSE)
     fsutil.xattr_set(infile,setout)
     logthis("Overrides set OK.",ccode=C.GRN,loglevel=LL.INFO)
     return 0
 
-def unsetter(infile):
+def unsetter(xconfig):
     """
     Remove overrides for a file or directory
     """
+    infile = xconfig.run['infile']
     dlist = list(fsutil.xattr_get(infile))
     logthis("Removing overrides:\n",suffix=print_r(dlist),loglevel=LL.VERBOSE)
     fsutil.xattr_del(infile,dlist)

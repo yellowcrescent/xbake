@@ -1,20 +1,19 @@
 #!/usr/bin/env python
 # coding=utf-8
-###############################################################################
-#
-# out - xbake/mscan/out.py
-# XBake: Scanner output module
-#
-# @author   J. Hipps <jacob@ycnrg.org>
-# @repo     https://bitbucket.org/yellowcrescent/yc_xbake
-#
-# Copyright (c) 2015 J. Hipps / Neo-Retro Group
-#
-# https://ycnrg.org/
-#
-###############################################################################
+# vim: set ts=4 sw=4 expandtab syntax=python:
+"""
 
-import __main__
+xbake.mscan.out
+Scanner output module
+
+@author   Jacob Hipps <jacob@ycnrg.org>
+@repo     https://git.ycnrg.org/projects/YXB/repos/yc_xbake
+
+Copyright (c) 2013-2016 J. Hipps / Neo-Retro Group, Inc.
+https://ycnrg.org/
+
+"""
+
 import sys
 import os
 import re
@@ -22,15 +21,16 @@ import json
 import signal
 import time
 import socket
-import requests
 from datetime import datetime
 
-# Logging & Error handling
-from xbake.common.logthis import C,LL,logthis,ER,failwith,loglevel,print_r
+import requests
 
+from xbake import __version__, __date__
+from xbake.common.logthis import *
 from xbake.xcode import ffmpeg
 from xbake.mscan import util
 from xbake.common import db
+
 
 def to_mongo(indata,moncon):
     """
@@ -284,17 +284,17 @@ def to_file(indata,fname):
     return xstat
 
 
-def to_server(indata,shost):
+def to_server(indata,shost,xconfig):
     """
     Send results to listening XBake daemon
     """
-    shared_key = __main__.xsetup.config['srv']['shared_key']
+    shared_key = xconfig.srv['shared_key']
     logthis("Server prefix:",suffix=shost,loglevel=LL.DEBUG)
     logthis("Shared key:",suffix=shared_key,loglevel=LL.DEBUG)
 
     # Create request
     qurl = shost + "/api/mscan/add"
-    headset = { 'Content-Type': "application/json", 'WWW-Authenticate': shared_key, 'User-Agent': "XBake/"+__main__.xsetup.version }
+    headset = { 'Content-Type': "application/json", 'WWW-Authenticate': shared_key, 'User-Agent': "XBake/"+__version__ }
     logthis("** Sending data to",suffix=qurl,loglevel=LL.VERBOSE)
     rq = requests.post(qurl,headers=headset,data=json.dumps(indata))
 

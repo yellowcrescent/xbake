@@ -1,51 +1,48 @@
 #!/usr/bin/env python
 # coding=utf-8
-###############################################################################
-#
-# scrapers - xbake/mscan/scrapers.py
-# XBake: Scraper Functions
-#
-# @author   J. Hipps <jacob@ycnrg.org>
-# @repo     https://bitbucket.org/yellowcrescent/yc_xbake
-#
-# Copyright (c) 2015 J. Hipps / Neo-Retro Group
-#
-# https://ycnrg.org/
-#
-###############################################################################
+# vim: set ts=4 sw=4 expandtab syntax=python:
+"""
 
-import __main__
+xbake.mscan.scrapers
+Scraper functions
+
+@author   Jacob Hipps <jacob@ycnrg.org>
+@repo     https://git.ycnrg.org/projects/YXB/repos/yc_xbake
+
+Copyright (c) 2013-2016 J. Hipps / Neo-Retro Group, Inc.
+https://ycnrg.org/
+
+"""
+
 import sys
 import os
 import re
 import json
 import signal
 import time
-from collections import defaultdict
 import subprocess
+from collections import defaultdict
+
 import requests
 import xmltodict
 
-# Logging & Error handling
-from xbake.common.logthis import C,LL,logthis,ER,failwith,loglevel,print_r
+from xbake import __version__
+from xbake.common.logthis import *
 
-# tsukimi episode map
-tsk_epmap = defaultdict(lambda: None, {
+EPIMAP = defaultdict(lambda: None, {
                 'EpisodeName': "title",
                 'EpisodeNumber': "episode",
                 'FirstAired': "first_aired"
             })
 
-def tvdb(xsea,tdex):
+def tvdb(xsea, tdex, config):
     """
     TheTVDB.com (TVDB) Scraper
     """
-    conf = __main__.xsetup.config
-
     xstitle = tdex[xsea]['title']
     logthis("Retrieving series information from theTVDb for",suffix=xstitle,loglevel=LL.VERBOSE)
 
-    tvdb_id = tdex[xsea].get('tvdb_id', tvdb_get_id(xstitle))
+    tvdb_id = tdex[xsea].get('tvdb_id', tvdb_get_id(xstitle, config))
 
     if tvdb_id:
         if tdex[xsea].has_key('tvdb_id'):
@@ -54,8 +51,8 @@ def tvdb(xsea,tdex):
         logthis("Got theTVDb Series ID#",suffix=tvdb_id,loglevel=LL.VERBOSE)
 
         # Retrieve entry from TVDB
-        tvdb_info = tvdb_get_info(tvdb_id)
-        tdex[xsea].update(tvdb_process(tvdb_info))
+        tvdb_info = tvdb_get_info(tvdb_id, config)
+        tdex[xsea].update(tvdb_process(tvdb_info, config))
         logthis("theTVDb info:",suffix=tvdb_info,loglevel=LL.DEBUG2)
         return True
     else:
@@ -63,14 +60,12 @@ def tvdb(xsea,tdex):
         return False
 
 
-def tvdb_get_id(sername):
+def tvdb_get_id(sername, config):
     """
     TVDB: Get SeriesID from SeriesName
     """
-    conf = __main__.xsetup.config
-
     # Query TVDb for SeriesName
-    xresp = getxml(conf['tvdb']['mirror'] + "/api/GetSeries.php", {'seriesname': sername})
+    xresp = getxml(config.tvdb['mirror'] + "/api/GetSeries.php", {'seriesname': sername})
     logthis("Got response from TVDb:",suffix=print_r(xresp),loglevel=LL.DEBUG2)
 
     snorm = normalize(sername)
@@ -113,14 +108,12 @@ def tvdb_get_id(sername):
     return xid_out
 
 
-def tvdb_get_info(serid,slang="en"):
+def tvdb_get_info(serid, config, slang="en"):
     """
     TVDB: Retrieve series info
     """
-    conf = __main__.xsetup.config
-
     # Retrieve series data from TVDb
-    xresp = getxml("%s/api/%s/series/%s/all/%s.xml" % (conf['tvdb']['mirror'],conf['tvdb']['apikey'],serid,slang))
+    xresp = getxml("%s/api/%s/series/%s/all/%s.xml" % (config.tvdb['mirror'],config.tvdb['apikey'],serid,slang))
     logthis("Got response from TVDb:",suffix=print_r(xresp),loglevel=LL.DEBUG2)
 
     if xresp['ok']:
@@ -133,12 +126,11 @@ def tvdb_get_info(serid,slang="en"):
     return xdout
 
 
-def tvdb_process(indata):
+def tvdb_process(indata, config):
     """
     TVDB: Process data and enumerate artwork assets
     """
-    conf = __main__.xsetup.config
-    imgbase = conf['tvdb']['imgbase']
+    imgbase = config.tvdb['imgbase']
 
     txc = {
             'tv': {}, 'xrefs': {}, 'synopsis': {}, 'xref': {},
@@ -173,14 +165,14 @@ def tvdb_process(indata):
     bandefs['poster'] = iser.get('poster',None)
 
     # Get Artwork
-    txc['artwork'] = tvdb_get_artwork(txc['xrefs']['tvdb'], bandefs)
+    txc['artwork'] = tvdb_get_artwork(txc['xrefs']['tvdb'], config, bandefs)
 
     # Add Episode information
-    if conf['run']['tsukimi']:
+    if config.run['tsukimi']:
         txc['episodes'] = []
         for irow in indata.get('Episode',[]):
-            #trow = { filter(lambda x: x[1] == kname, tsk_epmap.items())[0][0]: val for kname, val in irow.iteritems() }
-            trow = { tsk_epmap[kname]: val for kname, val in irow.iteritems() }
+            #trow = { filter(lambda x: x[1] == kname, EPIMAP.items())[0][0]: val for kname, val in irow.iteritems() }
+            trow = { EPIMAP[kname]: val for kname, val in irow.iteritems() }
             del(trow[None])
             txc['episodes'].append(trow)
     else:
@@ -190,18 +182,17 @@ def tvdb_process(indata):
 
     return txc
 
-def tvdb_get_artwork(serid, adefs={}):
+def tvdb_get_artwork(serid, config, adefs={}):
     """
     TVDB: Fetch artwork data
     """
-    conf = __main__.xsetup.config
-    imgbase = conf['tvdb']['imgbase']
+    imgbase = config.tvdb['imgbase']
 
     xdout = { 'banners': [], 'fanart': [], 'poster': [], 'season': [] }
 
     # Retrieve artwork data from TVDb
     logthis("Fetching artwork/banner data from theTVDb...",loglevel=LL.INFO)
-    xresp = getxml("%s/api/%s/series/%s/banners.xml" % (conf['tvdb']['mirror'],conf['tvdb']['apikey'],serid))
+    xresp = getxml("%s/api/%s/series/%s/banners.xml" % (config.tvdb['mirror'],config.tvdb['apikey'],serid))
     logthis("Got response from TVDb:",suffix=print_r(xresp),loglevel=LL.DEBUG2)
 
     if xresp['ok']:
@@ -210,7 +201,7 @@ def tvdb_get_artwork(serid, adefs={}):
 
         for bb in blist:
             bantype = bb.get('BannerType','').lower().strip()
-            if conf['run']['tsukimi']:
+            if config.run['tsukimi']:
                 tart = {
                         'id': bb.get('id',False),
                         'source': "tvdb",
@@ -250,18 +241,18 @@ def tvdb_get_artwork(serid, adefs={}):
 
     return xdout
 
-def mal(xsea,tdex):
+def mal(xsea, tdex, config):
     """
     MyAnimeList.net (MAL) Scraper
     """
-    conf = __main__.xsetup.config
+    pass
 
 
-def getxml(uribase,qget=None,qauth=None):
+def getxml(uribase, qget=None, qauth=None):
     """
     Make HTTP request and decode XML response
     """
-    useragent = "Mozilla/5.0 ("+os.uname()[0]+" "+os.uname()[4]+") XBake/"+__main__.xsetup.version+" (XBake Scraper - https://bitbucket.org/yellowcrescent/yc_xbake/)"
+    useragent = "Mozilla/5.0 (compatible; XBake/"+__version__+" +https://ycnrg.org/); "+os.uname()[0]+" "+os.uname()[4]
     rstat = { 'status': None, 'ok': False, 'answer': None }
 
     # Set headers
@@ -292,7 +283,7 @@ def normalize(xname):
     return re.sub(urgx,'_',re.sub(nrgx,'', xname)).lower().strip()
 
 
-def date2time(dstr,fstr="%Y-%m-%d"):
+def date2time(dstr, fstr="%Y-%m-%d"):
     """
     Convert date string to integer UNIX epoch time
     """

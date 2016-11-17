@@ -1,20 +1,20 @@
 #!/usr/bin/env python
 # coding=utf-8
-###############################################################################
-#
-# yc_xbake
-# YC XBake: Video file scanning, renaming, sub baking and transcoding utility
-#
-# @author   J. Hipps <jacob@ycnrg.org>
-# @repo     https://bitbucket.org/yellowcrescent/yc_xbake
-#
-# Copyright (c) 2013-2016 J. Hipps / Neo-Retro Group
-#
-# https://ycnrg.org/
-#
-# @deps     xbake
-#
-###############################################################################
+# vim: set ts=4 sw=4 expandtab syntax=python:
+"""
+
+xbake.cli
+Command-line interface & arg parsing
+
+@author   Jacob Hipps <jacob@ycnrg.org>
+@repo     https://git.ycnrg.org/projects/YXB/repos/yc_xbake
+
+Copyright (c) 2013-2016 J. Hipps / Neo-Retro Group, Inc.
+https://ycnrg.org/
+
+"""
+
+from __future__ import print_function
 
 import sys
 import os
@@ -25,7 +25,7 @@ import optparse
 import operator
 import time
 
-# Logging & Error handling
+from xbake import __version__, __date__, defaults
 from xbake.common.logthis import *
 from xbake.common import rcfile
 from xbake.xcode import ffmpeg,xcode
@@ -34,119 +34,24 @@ from xbake.srv import daemon
 
 oparser = None
 
-class xsetup:
-    """Contains version information and globals"""
-    ## Version info
-    version = "0.10.180"
-    vdate   = "01 May 2016"
-
-    config   =  None
-    lconfig  =  None
-    defaults =  {
-                    'run': {
-                        'mode': None,
-                        'infile': None,
-                        'outfile': None,
-                        'id': None,
-                        'bake': False,
-                        'vscap': None,
-                        'single': False,
-                        'tsukimi': False
-                    },
-                    'core': {
-                        'loglevel': LL.INFO
-                    },
-                    'vid': {
-                        'autoid': 1,
-                        'location': None,
-                        'vername': None
-                    },
-                    'vscap': {
-                        'basedir': ".",
-                        'webp_m': 6,
-                        'webp_q': 90
-                    },
-                    'mongo': {
-                        'host': "localhost",
-                        'port': 27017,
-                        'database': "ycplay"
-                    },
-                    'redis': {
-                        'host': "localhost",
-                        'port': 6379,
-                        'db': 6,
-                        'prefix': "xbake"
-                    },
-                    'xcode': {
-                        'subtype': "ass",
-                        'subid': "auto",
-                        'abr': 128,
-                        'downmix': 'auto',
-                        'acopy': 'auto',
-                        'aid': None,
-                        'srt_style': "FontName=MyriadPro-Semibold,Outline=1,Shadow=1,FontSize=24",
-                        'fontdir': "~/.fonts",
-                        'fontsave': False,
-                        'scale': None,
-                        'flv': False,
-                        'anamorphic': False,
-                        'crf': 20,
-                        'libx264_preset': "medium",
-                        'show_ffmpeg': True
-                    },
-                    'scan': {
-                        'scraper': "tvdb",
-                        'mforce': False,
-                        'nochecksum': False,
-                        'savechecksum': True,
-                        'output': None
-                    },
-                    'tvdb': {
-                        'mirror': "http://thetvdb.com",
-                        'imgbase': "http://thetvdb.com/banners",
-                        'apikey': False
-                    },
-                    'mal': {
-                        'user': False,
-                        'password': False
-                    },
-                    'ffmpeg': {
-                        'path': False
-                    },
-                    'srv': {
-                        'pidfile': "xbake.pid",
-                        'iface': "0.0.0.0",
-                        'port': 7037,
-                        'nofork': False,
-                        'debug': False,
-                        'shared_key': '',
-                        'xfer_path': '.',
-                        'xfer_hostonly': False,
-                        'xcode_outpath': '.',
-                        'xcode_default_profile': None,
-                        'xcode_scale_allowance': 10,
-                        'xcode_show_ffmpeg': False
-                    }
-                }
-
 def show_banner():
     """
     Display banner
     """
-    print ""
-    print C.CYN, "*** ", C.WHT, "yc_xbake", C.OFF
-    print C.CYN, "*** ", C.CYN, "Version", xsetup.version, "(" + xsetup.vdate + ")", C.OFF
-    print C.CYN, "*** ", C.GRN, "Copyright (c) 2013-2016 J. Hipps / Neo-Retro Group", C.OFF
-    print C.CYN, "*** ", C.GRN, "J. Hipps <jacob@ycnrg.org>", C.OFF
-    print C.CYN, "*** ", C.YEL, "https://ycnrg.org/", C.OFF
-    print ""
+    print("")
+    print(C.CYN, "*** ", C.WHT, "yc_xbake", C.OFF)
+    print(C.CYN, "*** ", C.CYN, "Version", __version__, "(" + __date__ + ")", C.OFF)
+    print(C.CYN, "*** ", C.GRN, "Copyright (c) 2013-2016 J. Hipps / Neo-Retro Group", C.OFF)
+    print(C.CYN, "*** ", C.GRN, "J. Hipps <jacob@ycnrg.org>", C.OFF)
+    print(C.CYN, "*** ", C.YEL, "https://ycnrg.org/", C.OFF)
+    print("")
 
 def parse_cli():
     """
     Parse command-line options
     """
     global oparser
-    oparser = optparse.OptionParser(usage="%prog <--xcode|--scan|--ssonly|--server|--set> [options] <[-i] INFILE> [[-o] OUTFILE]",version=xsetup.version+" ("+xsetup.vdate+")")
+    oparser = optparse.OptionParser(usage="%prog <--xcode|--scan|--ssonly|--server|--set> [options] <[-i] INFILE> [[-o] OUTFILE]",version=__version__+" ("+__date__+")")
 
     # General options
     oparser.add_option('-v', '--verbose', action="count", dest="run.verbose", help="Increase logging verbosity (-v Verbose, -vv Debug, -vvv Debug2)")
@@ -255,51 +160,53 @@ def parse_cli():
 ##############################################################################
 ## Entry point
 ##
-
-if __name__ == '__main__':
-
+def _main():
+    """CLI entry point"""
     # Show banner
     if len(sys.argv) < 2 or sys.argv[1] != '--version' and sys.argv[1] != '-q':
         show_banner()
 
     # Set default loglevel
-    loglevel(xsetup.defaults['core']['loglevel'])
+    loglevel(defaults['core']['loglevel'])
 
     # parse CLI options and load running config
     xopt = parse_cli()
-    rcfile.loadConfig(cliopts=xopt)
-    loglevel(xsetup.config['core']['loglevel'])
+    config = rcfile.loadConfig(cliopts=xopt)
+    configure_logging(config)
 
     # Get ffmpeg version
-    ffmpeg.locateAll()
+    ffmpeg.locateAll(config)
     ffver = ffmpeg.version()
     logthis("FFmpeg Version:",suffix="%s (%s)" % (ffver['version'],ffver['date']),loglevel=LL.VERBOSE)
-    tstatus('version', xbake_version=xsetup.version, xbake_date=xsetup.vdate, ffmpeg=ffver, path=os.environ['PATH'])
+    tstatus('version', xbake_version=__version__, xbake_date=__date__, ffmpeg=ffver, path=os.environ['PATH'])
 
     # Ready
-    logthis("Configuration done. xsetup.config =",suffix=xsetup.config,loglevel=LL.DEBUG)
+    logthis("Configuration done. config =",suffix=str(config),loglevel=LL.DEBUG)
 
     # Set quiet exception handler for non-verbose operation
-    if xsetup.config['core']['loglevel'] < LL.VERBOSE:
+    if config.core['loglevel'] < LL.VERBOSE:
         sys.excepthook = exceptionHandler
 
     # Set default return code to 1
     rcode = 1
-    if xsetup.config['run']['mode'] == "xcode":
-        rcode = xcode.run(xsetup.config['run']['infile'],xsetup.config['run']['outfile'],xsetup.config['vid']['vername'])
-    elif xsetup.config['run']['mode'] == "ssonly":
-        rcode = xcode.ssonly(xsetup.config['run']['infile'])
-    elif xsetup.config['run']['mode'] == "scan":
-        rcode = mscan.run(xsetup.config['run']['infile'],xsetup.config['run']['outfile'])
-    elif xsetup.config['run']['mode'] == "srv":
-        daemon.start(xsetup.config['srv']['iface'],xsetup.config['srv']['port'],xsetup.config['srv']['debug'])
-    elif xsetup.config['run']['mode'] == "set":
-        if xsetup.config['run'].get('ovr_clear',False):
-            rcode = mscan.unsetter(xsetup.config['run']['infile'])
+    if config.run['mode'] == "xcode":
+        rcode = xcode.run(config)
+    elif config.run['mode'] == "ssonly":
+        rcode = xcode.ssonly(config)
+    elif config.run['mode'] == "scan":
+        rcode = mscan.run(config)
+    elif config.run['mode'] == "srv":
+        daemon.start(config)
+    elif config.run['mode'] == "set":
+        if config.run.get('ovr_clear',False):
+            rcode = mscan.unsetter(config)
         else:
-            rcode = mscan.setter(xsetup.config['run']['infile'])
+            rcode = mscan.setter(config)
     else:
         oparser.print_help()
         rcode = 250
 
     sys.exit(rcode)
+
+if __name__ == '__main__':
+    _main()

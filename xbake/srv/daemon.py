@@ -1,48 +1,48 @@
 #!/usr/bin/env python
 # coding=utf-8
-###############################################################################
-#
-# daemon - xbake/srv/daemon.py
-# XBake: API Service Daemon
-#
-# @author   J. Hipps <jacob@ycnrg.org>
-# @repo     https://bitbucket.org/yellowcrescent/yc_xbake
-#
-# Copyright (c) 2015 J. Hipps / Neo-Retro Group
-#
-# https://ycnrg.org/
-#
-###############################################################################
+# vim: set ts=4 sw=4 expandtab syntax=python:
+"""
 
-import __main__
+xbake.srv.daemon
+Daemon master process & REST API handler
+
+@author   Jacob Hipps <jacob@ycnrg.org>
+@repo     https://git.ycnrg.org/projects/YXB/repos/yc_xbake
+
+Copyright (c) 2013-2016 J. Hipps / Neo-Retro Group, Inc.
+https://ycnrg.org/
+
+"""
+
 import sys
 import os
 import re
 import signal
 import time
+
 from setproctitle import setproctitle
-from flask import Flask,json,jsonify,make_response,request
+from flask import Flask, json, jsonify, make_response, request
 
-# Logging & Error handling
-from xbake.common.logthis import C,LL,logthis,ER,failwith,loglevel,print_r
-
+from xbake import __version__, __date__
+from xbake.common.logthis import *
 from xbake.mscan import out
 from xbake.srv import queue
 
 # XBake server Flask object
 xsrv = None
+config = None
 
-def start(bind_ip="0.0.0.0",bind_port=7037,fdebug=False):
+# def start(bind_ip="0.0.0.0",bind_port=7037,fdebug=False):
+def start(xconfig):
     """Start XBake Daemon"""
-    conf = __main__.xsetup.config
-    #shared_key = conf['srv']['shared_key']
-    #logthis(">> Shared Key",suffix=shared_key,loglevel=LL.DEBUG)
+    global config
+    config = xconfig
 
     # first, fork
-    if not conf['srv']['nofork']: dfork()
+    if not config.srv['nofork']: dfork()
 
     # set process title
-    setproctitle("yc_xbake: master process (%s:%d)" % (bind_ip, bind_port))
+    setproctitle("yc_xbake: master process (%s:%d)" % (config.srv['iface'], config.srv['port']))
     pidfile_set()
 
     # spawn queue runners
@@ -58,7 +58,7 @@ def start(bind_ip="0.0.0.0",bind_port=7037,fdebug=False):
 
     # start flask listener
     logthis("Starting Flask...",loglevel=LL.VERBOSE)
-    xsrv.run(bind_ip,bind_port,fdebug,use_evalex=False)
+    xsrv.run(config.srv['iface'], config.srv['port'], config.srv['debug'], use_evalex=False)
 
 def dfork():
     """Fork into the background"""
@@ -99,7 +99,7 @@ def dfork():
 def dresponse(objx,rcode=200):
     rx = make_response(pjson(objx),rcode)
     rx.headers['Content-Type'] = "application/json; charset=utf-8"
-    rx.headers['Server'] = "XBake/"+__main__.xsetup.version
+    rx.headers['Server'] = "XBake/"+__version__
     rx.headers['Accept'] = 'application/json'
     return rx
 
@@ -120,7 +120,7 @@ def precheck(rheaders=False,require_ctype=True):
         wauth = request.headers['WWW-Authenticate']
     except KeyError:
         wauth = None
-    skey = __main__.xsetup.config['srv']['shared_key']
+    skey = config.srv['shared_key']
     if wauth:
         if wauth == skey:
             logthis("Authentication passed",loglevel=LL.VERBOSE)
@@ -139,10 +139,10 @@ def route_root():
     rinfo = {
                 'app': "XBake",
                 'description': "Media scanner, transcoder, and generally-handy subtitle baker thing",
-                'version': __main__.xsetup.version,
-                'date': __main__.xsetup.vdate,
+                'version': __version__,
+                'date': __date__,
                 'author': "J. Hipps <jacob@ycnrg.org>",
-                'copyright': "Copyright (c) 2013-2016 J. Hipps/Neo-Retro Group",
+                'copyright': "Copyright (c) 2013-2016 J. Hipps/Neo-Retro Group, Inc.",
                 'license': "MIT"
             }
     return dresponse(rinfo)
@@ -155,7 +155,7 @@ def route_mscan_add():
 
     if precheck():
         # Write to Mongo
-        cmon = __main__.xsetup.config['mongo']
+        cmon = config.mongo
         xstatus = out.to_mongo(request.json,cmon)
         hcode = xstatus['http_status']
         del(xstatus['http_status'])
@@ -172,7 +172,7 @@ def pjson(oin):
     return json.dumps(oin,indent=4,separators=(',', ': '))
 
 def pidfile_set():
-    pfname = __main__.xsetup.config['srv']['pidfile']
+    pfname = config.srv['pidfile']
     try:
         fo = open(pfname,"w")
         fo.write("%d\n" % os.getpid())

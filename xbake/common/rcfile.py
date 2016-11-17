@@ -1,20 +1,19 @@
 #!/usr/bin/env python
 # coding=utf-8
-###############################################################################
-#
-# rcfile - xbake/common/rcfile.py
-# XBake: RCFile functions
-#
-# @author   J. Hipps <jacob@ycnrg.org>
-# @repo     https://bitbucket.org/yellowcrescent/yc_xbake
-#
-# Copyright (c) 2015 J. Hipps / Neo-Retro Group
-#
-# https://ycnrg.org/
-#
-###############################################################################
+# vim: set ts=4 sw=4 expandtab syntax=python:
+"""
 
-import __main__
+xbake.common.rcfile
+Configuration parser
+
+@author   Jacob Hipps <jacob@ycnrg.org>
+@repo     https://git.ycnrg.org/projects/YXB/repos/yc_xbake
+
+Copyright (c) 2013-2016 J. Hipps / Neo-Retro Group, Inc.
+https://ycnrg.org/
+
+"""
+
 import os
 import sys
 import re
@@ -22,14 +21,45 @@ import signal
 import codecs
 import ConfigParser
 
-# Logging
-from xbake.common.logthis import C,LL,logthis,ER,failwith,loglevel,print_r
+from xbake import defaults
+from xbake.common.logthis import *
 
-# RCfile list
 rcfiles = [ './xbake.conf', '~/.xbake/xbake.conf', '~/.xbake', '/etc/xbake.conf' ]
-
-# Parser object
 rcpar = None
+
+
+class XConfig(object):
+    """
+    Config management object; allow access via attributes or items
+    """
+    __data = {}
+
+    def __init__(self, idata):
+        self.__data = idata
+
+    def __getattr__(self, aname):
+        if aname in self.__data:
+            if isinstance(self.__data[aname], dict):
+                return XConfig(self.__data[aname])
+            else:
+                return self.__data[aname]
+        else:
+            raise KeyError(aname)
+
+    def __getitem__(self, aname):
+        return self.__getattr__(aname)
+
+    def __setitem__(self, aname, aval):
+        self.__data[aname] = aval
+
+    def __str__(self):
+        return print_r(self.__data)
+
+    def __repr__(self):
+        return "<XConfig: srv.url=%s, srv.port=%s, core.tclient=%s, xmpp.user=%s, ...>" % \
+               (self.__data['srv']['url'], self.__data['srv']['port'],
+                self.__data['core']['tclient'], self.__data['xmpp']['user'])
+
 
 def rcList(xtraConf=None):
     global rcfiles
@@ -101,14 +131,14 @@ def merge(inrc,cops):
     """
     outrc = {}
     # set defaults first
-    for dsec in __main__.xsetup.defaults:
+    for dsec in defaults:
         # create sub dict for this section, if not exist
         if not outrc.has_key(dsec):
             outrc[dsec] = {}
         # loop through the keys
-        for dkey in __main__.xsetup.defaults[dsec]:
-            logthis("** Option:",prefix="defaults",suffix="%s => %s => '%s'" % (dsec,dkey,__main__.xsetup.defaults[dsec][dkey]),loglevel=LL.DEBUG2)
-            outrc[dsec][dkey] = __main__.xsetup.defaults[dsec][dkey]
+        for dkey in defaults[dsec]:
+            logthis("** Option:",prefix="defaults",suffix="%s => %s => '%s'" % (dsec,dkey,defaults[dsec][dkey]),loglevel=LL.DEBUG2)
+            outrc[dsec][dkey] = defaults[dsec][dkey]
 
     # set options defined in rcfile, overriding defaults
     for dsec in inrc:
@@ -188,5 +218,4 @@ def loadConfig(xtraConf=None,cliopts=None):
     rcfile,rci = parse(xtraConf)
     cxopt = optexpand(cliopts)
     optrc = merge(rci,cxopt)
-    __main__.xsetup.config = optrc
-    __main__.xsetup.lconfig = rcfile
+    return XConfig(optrc)

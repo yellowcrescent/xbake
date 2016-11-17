@@ -1,20 +1,19 @@
 #!/usr/bin/env python
 # coding=utf-8
-###############################################################################
-#
-# util - xbake/mscan/util.py
-# XBake: Scanner Utility Functions
-#
-# @author   J. Hipps <jacob@ycnrg.org>
-# @repo     https://bitbucket.org/yellowcrescent/yc_xbake
-#
-# Copyright (c) 2015 J. Hipps / Neo-Retro Group
-#
-# https://ycnrg.org/
-#
-###############################################################################
+# vim: set ts=4 sw=4 expandtab syntax=python:
+"""
 
-import __main__
+xbake.mscan.util
+Scanner utility functions
+
+@author   Jacob Hipps <jacob@ycnrg.org>
+@repo     https://git.ycnrg.org/projects/YXB/repos/yc_xbake
+
+Copyright (c) 2013-2016 J. Hipps / Neo-Retro Group, Inc.
+https://ycnrg.org/
+
+"""
+
 import sys
 import os
 import re
@@ -25,11 +24,13 @@ import subprocess
 import pwd
 import grp
 import hashlib
+
 from pymediainfo import MediaInfo
 
 from xbake.common.logthis import *
 from xbake.common import fsutil
 from xbake.xcode.ffmpeg import bpath  # FIXME
+
 
 def md5sum(fname):
     return rhash(fname, "md5")['md5']
@@ -101,7 +102,7 @@ class MIP:
     LOWER = 256
     DIV1000 = 512
 
-milut =  {
+MILUT =  {
             'id': MIP.COPY,
             'unique_id': MIP.STRCOPY,
             'format': MIP.COPY|MIP.LOWER,
@@ -131,7 +132,7 @@ milut =  {
          }
 
 def mediainfo(fname):
-    global milut
+    global MILUT
 
     logthis("Parsing mediainfo from file:",suffix=fname,loglevel=LL.VERBOSE)
 
@@ -163,20 +164,20 @@ def mediainfo(fname):
                     outdata['menu'].append(mti)
 
             # Make sure it's a key we care about
-            elif milut.has_key(tkey):
+            elif MILUT.has_key(tkey):
                 tname = tkey
 
                 # If the object in the LUT is a dict, it has extended info
-                if type(milut[tkey]) is dict:
-                    tcmd = milut[tkey]['do']
-                    if milut[tkey].has_key('opt'):
-                        topt = milut[tkey]['opt']
+                if type(MILUT[tkey]) is dict:
+                    tcmd = MILUT[tkey]['do']
+                    if MILUT[tkey].has_key('opt'):
+                        topt = MILUT[tkey]['opt']
                     else:
                         topt = None
-                    if milut[tkey].has_key('name'):
-                        tname = milut[tkey]['name']
+                    if MILUT[tkey].has_key('name'):
+                        tname = MILUT[tkey]['name']
                 else:
-                    tcmd = milut[tkey]
+                    tcmd = MILUT[tkey]
                     topt = None
 
                 # check for dupes

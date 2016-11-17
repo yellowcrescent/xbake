@@ -1,20 +1,19 @@
 #!/usr/bin/env python
 # coding=utf-8
-###############################################################################
-#
-# queue - xbake/srv/queue.py
-# XBake: Queue Runner
-#
-# @author   J. Hipps <jacob@ycnrg.org>
-# @repo     https://bitbucket.org/yellowcrescent/yc_xbake
-#
-# Copyright (c) 2015 J. Hipps / Neo-Retro Group
-#
-# https://ycnrg.org/
-#
-###############################################################################
+# vim: set ts=4 sw=4 expandtab syntax=python:
+"""
 
-import __main__
+xbake.srv.queue
+Queue Runner
+
+@author   Jacob Hipps <jacob@ycnrg.org>
+@repo     https://git.ycnrg.org/projects/YXB/repos/yc_xbake
+
+Copyright (c) 2013-2016 J. Hipps / Neo-Retro Group, Inc.
+https://ycnrg.org/
+
+"""
+
 import sys
 import os
 import re
@@ -23,14 +22,12 @@ import time
 import json
 import subprocess
 import pipes
+
 from setproctitle import setproctitle
+
+from xbake.common.logthis import *
 from xbake.common import db
-
-# Logging & Error handling
-from xbake.common.logthis import C,LL,logthis,ER,failwith,loglevel,print_r
-
-# mscan, xcode, and other file utility imports
-from xbake.mscan.util import md5sum,checksum,rhash,dstat
+from xbake.mscan.util import md5sum, checksum, rhash, dstat
 from xbake.xcode import xcode
 
 # Queue handler callbacks

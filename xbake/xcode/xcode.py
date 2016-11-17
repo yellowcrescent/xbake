@@ -1,20 +1,19 @@
 #!/usr/bin/env python
 # coding=utf-8
-###############################################################################
-#
-# xcode - xbake/xcode/xcode.py
-# XBake: Transcoder
-#
-# @author   J. Hipps <jacob@ycnrg.org>
-# @repo     https://bitbucket.org/yellowcrescent/yc_xbake
-#
-# Copyright (c) 2015-2016 J. Hipps / Neo-Retro Group
-#
-# https://ycnrg.org/
-#
-###############################################################################
+# vim: set ts=4 sw=4 expandtab syntax=python:
+"""
 
-import __main__
+xbake.xcode.xcode
+Transcoder
+
+@author   Jacob Hipps <jacob@ycnrg.org>
+@repo     https://git.ycnrg.org/projects/YXB/repos/yc_xbake
+
+Copyright (c) 2013-2016 J. Hipps / Neo-Retro Group, Inc.
+https://ycnrg.org/
+
+"""
+
 import sys
 import os
 import re
@@ -100,35 +99,37 @@ class ffo:
 
 # Mongo object
 monjer = None
+config = None
 
-def run(infile,outfile=None,vername=None,id=None,**kwargs):
+
+def run(xconfig):
     """
     Implements --xcode mode
     """
-    global monjer
-    conf = __main__.xsetup.config
+    global monjer, config
+    config = xconfig
 
     # Check input filename
-    if not infile:
+    if not config.run['infile']:
         failwith(ER.OPT_MISSING, "option infile required (-i/--infile)")
     else:
-        if not os.path.exists(infile):
-            failwith(ER.OPT_BAD, "infile [%s] does not exist" % infile)
-        elif not os.path.isfile(infile):
-            failwith(ER.OPT_BAD, "infile [%s] is not a regular file" % infile)
+        if not os.path.exists(config.run['infile']):
+            failwith(ER.OPT_BAD, "infile [%s] does not exist" % config.run['infile'])
+        elif not os.path.isfile(config.run['infile']):
+            failwith(ER.OPT_BAD, "infile [%s] is not a regular file" % config.run['infile'])
 
     # Get video ID (MD5 sum by default)
-    if conf['run']['id']:
-        vinfo.id = conf['run']['id']
-    elif conf['vid']['autoid']:
-        vinfo.id = util.md5sum(infile)
+    if config.run['id']:
+        vinfo.id = config.run['id']
+    elif config.vid['autoid']:
+        vinfo.id = util.md5sum(config.run['infile'])
         logthis("MD5 Checksum:",suffix=vinfo.id,loglevel=LL.INFO)
 
     # Connect to Mongo
-    monjer = db.mongo(conf['mongo'])
+    monjer = db.mongo(config.mongo)
 
     # Build pre-transcode data
-    vinfo.vername = vername
+    vinfo.vername = config.vid['vername']
     if monjer and vinfo.id:
         if not vinfo.vername:
             failwith(ER.OPT_MISSING, "No version name specified. Use --vername to specify the version name. Aborting.")
@@ -139,13 +140,13 @@ def run(infile,outfile=None,vername=None,id=None,**kwargs):
         vdata = False
 
     # Perform transcoding
-    vvdata = transcode(infile,outfile)
+    vvdata = transcode(config.run['infile'],config.run['outfile'])
     if vdata:
         vdata['versions'][vinfo.vername] = vvdata
 
     # Grab an interesting frame for the screenshot
-    if conf['run']['vscap']:
-        vsdata = sscapture(infile,conf['run']['vscap'])
+    if config.run['vscap']:
+        vsdata = sscapture(config.run['infile'],config.run['vscap'])
         if vdata:
             vdata['vscap'] = vsdata
 
@@ -160,7 +161,7 @@ def sscapture(infile,offset):
     """
     Screenshot capture
     """
-    conf = __main__.xsetup.config
+    global config
 
     # split up infile
     i_real = os.path.realpath(os.path.expanduser(infile))
@@ -170,10 +171,10 @@ def sscapture(infile,offset):
     # build filename & path stuffs
     ssout   = i_base + '.png'
     ssoutwp = i_base + '.webp'
-    ssdir = os.path.realpath(os.path.expanduser(conf['vscap']['basedir']))
-    ssdir_full = conf['vscap']['basedir'] + '/full'
-    ssdir_480 = conf['vscap']['basedir'] + '/480'
-    ssdir_240 = conf['vscap']['basedir'] + '/240'
+    ssdir = os.path.realpath(os.path.expanduser(config.vscap['basedir']))
+    ssdir_full = config.vscap['basedir'] + '/full'
+    ssdir_480 = config.vscap['basedir'] + '/480'
+    ssdir_240 = config.vscap['basedir'] + '/240'
     ssout_full = os.path.realpath(ssdir_full + '/' + ssout)
     ssout_fullwp = os.path.realpath(ssdir_full + '/' + ssoutwp)
     ssout_480 = os.path.realpath(ssdir_480 + '/' + ssout)
@@ -205,8 +206,7 @@ def transcode(infile,outfile=None):
     """
     Transcode video
     """
-    global monjer
-    conf = __main__.xsetup.config
+    global monjer, config
 
     # Split apart the input file, path, and extension
     vinfo.infile.full = os.path.realpath(os.path.expanduser(infile))
@@ -220,19 +220,19 @@ def transcode(infile,outfile=None):
     ## Set up encoding options ##
 
     ## Subtitles
-    if trueifset(conf['run']['bake'],typematch=True):
+    if trueifset(config.run['bake'],typematch=True):
         # Set up subtitle baking options (hardsub)
         stracks = mkv['subtitle_tracks']
 
         # Parse run.bake option for MKV subtitle track number (zero-based; eg. mkvmerge compatible)
         # If run.bake is 'auto' or set to True, use whichever track is marked as default
-        if conf['xcode']['subid'].lower() == 'auto':
+        if config.xcode['subid'].lower() == 'auto':
             subset = True
-        elif conf['xcode']['subid'] is True:
+        elif config.xcode['subid'] is True:
             subset = True
         else:
             try:
-                subset = int(conf['xcode']['subid'])
+                subset = int(config.xcode['subid'])
             except ValueError as e:
                 logthis("Unable to parse track number for xcode.subid (--subid) option:",suffix=e,loglevel=LL.ERROR)
                 logthis("Using whichever track is marked as default",loglevel=LL.WARNING)
@@ -261,12 +261,12 @@ def transcode(infile,outfile=None):
         # For ASS subs, dump font attachments
         if vinfo.sub.type == STYPE.ASS:
             logthis("Dumping font attachments...",loglevel=LL.INFO)
-            fontlist = ffmpeg.dumpFonts(vinfo.infile.full,conf['xcode']['fontdir'])
+            fontlist = ffmpeg.dumpFonts(vinfo.infile.full,config.xcode['fontdir'])
             subfile = "subtrack.ass"
             ffo.subs = [ 'ass=%s' % subfile ]
         elif vinfo.sub.type == STYPE.SRT:
             subfile = "subtrack.srt"
-            ffo.subs = [ "subtitles=%s:force_style='%s'" % (subfile, conf['xcode']['srt_style']) ]
+            ffo.subs = [ "subtitles=%s:force_style='%s'" % (subfile, config.xcode['srt_style']) ]
         else:
             logthis("Unsupported subtitle type:",suffix=vinfo.sub.type,loglevel=LL.ERROR)
             failwith(ER.UNSUPPORTED, "Sub type not supported. Unable to continue. Aborting.")
@@ -278,8 +278,8 @@ def transcode(infile,outfile=None):
     ## Audio
     atracks = mkv['audio_tracks']
 
-    if conf['xcode']['aid']:
-        subset = conf['xcode']['aid']
+    if config.xcode['aid']:
+        subset = config.xcode['aid']
     else:
         subset = True
 
@@ -300,28 +300,28 @@ def transcode(infile,outfile=None):
     vinfo.aud.channels = vinfo.aud.tdata['channels']
 
     # Determine if we need to transcode the audio
-    if str(conf['xcode']['acopy']).lower() == 'auto':
+    if str(config.xcode['acopy']).lower() == 'auto':
         # stream copy apparently only works for the default track
         if vinfo.aud.type == 'A_AAC' and vinfo.aud.tdata['default']:
             vinfo.aud.copy = True
         else:
             vinfo.aud.copy = False
-    elif conf['xcode']['acopy'] == 1 or conf['xcode']['acopy'] is True:
+    elif config.xcode['acopy'] == 1 or config.xcode['acopy'] is True:
         vinfo.aud.copy = True
     else:
         vinfo.aud.copy = False
 
     # Determine if we need to downmix/upmix
-    if conf['xcode']['downmix'].lower() == 'auto':
+    if config.xcode['downmix'].lower() == 'auto':
         if vinfo.aud.channels != 2:
             vinfo.aud.downmix = True
             # If stream copy is also set to auto, make sure it's
             # disabled if we need to downmix
-            if conf['xcode']['acopy'].lower() == 'auto':
+            if config.xcode['acopy'].lower() == 'auto':
                 vinfo.aud.copy = False
         else:
             vinfo.aud.downmix = False
-    elif conf['xcode']['downmix'] == 1 or conf['xcode']['downmix'] is True:
+    elif config.xcode['downmix'] == 1 or config.xcode['downmix'] is True:
         vinfo.aud.downmix = True
     else:
         vinfo.aud.downmix = False
@@ -334,14 +334,14 @@ def transcode(infile,outfile=None):
         # set codec
         ffo.audio += [ '-c:a:%d' % vinfo.aud.track, 'libfaac' ]
         # set audio bitrate
-        ffo.audio += [ '-b:a:%d' % vinfo.aud.track, '%dk' % conf['xcode']['abr'] ]
+        ffo.audio += [ '-b:a:%d' % vinfo.aud.track, '%dk' % config.xcode['abr'] ]
         # set downmix (or possibly upmix if mono), if enabled
         if vinfo.aud.downmix: ffo.audio += [ '-ac', '2' ]
 
     ## Filtering
-    if conf['xcode']['scale']:
-        ffo.scaler = [ 'scale=%s' % conf['xcode']['scale'] ]
-    if conf['xcode']['anamorphic']:
+    if config.xcode['scale']:
+        ffo.scaler = [ 'scale=%s' % config.xcode['scale'] ]
+    if config.xcode['anamorphic']:
         ffo.scaler = [ 'scale=854:480' ]
         ffo.video += [ '-aspect', '16:9' ]
 
@@ -350,7 +350,7 @@ def transcode(infile,outfile=None):
         ffo.video = [ '-vf', ','.join(ffo.scaler + ffo.subs) ] + ffo.video
 
     ## Video & Output filename
-    ffo.video += [ '-c:v', 'libx264', '-crf', str(conf['xcode']['crf']), '-preset:v', conf['xcode']['libx264_preset'] ]
+    ffo.video += [ '-c:v', 'libx264', '-crf', str(config.xcode['crf']), '-preset:v', config.xcode['libx264_preset'] ]
 
     # Get output path
     if outfile and os.path.isdir(outfile):
@@ -359,7 +359,7 @@ def transcode(infile,outfile=None):
         vinfo.outfile.path = os.path.realpath('.')
 
     # Select output container & extension
-    if not conf['xcode']['flv']:
+    if not config.xcode['flv']:
         ffo.video += [ '-movflags', '+faststart' ]
         vinfo.outfile.ext = '.mp4'
     else:
@@ -383,21 +383,21 @@ def transcode(infile,outfile=None):
 
     ## Build ffmpeg command
     ffoptions = [ '-y', '-i', vinfo.infile.full ] + ffo.video + ffo.audio + [ vinfo.outfile.full ]
-    ffmpeg.run(ffoptions,(not conf['xcode']['show_ffmpeg']))
+    ffmpeg.run(ffoptions,(not config.xcode['show_ffmpeg']))
 
     ## Cleanup
-    if trueifset(conf['run']['bake'],typematch=True):
+    if trueifset(config.run['bake'],typematch=True):
         logthis("Removing font and subtitle files...",loglevel=LL.VERBOSE)
         try:
             os.remove(subfile)
         except Exception as e:
             logexc(e,"Unable to remove subfile")
 
-        if not conf['xcode']['fontsave']:
+        if not config.xcode['fontsave']:
             for ff in fontlist:
-                if conf['xcode']['fontdir']:
+                if config.xcode['fontdir']:
                     try:
-                        os.remove(os.path.expanduser(conf['xcode']['fontdir']).rstrip('/') + "/" + ff)
+                        os.remove(os.path.expanduser(config.xcode['fontdir']).rstrip('/') + "/" + ff)
                     except Exception as e:
                         logexc(e,"Unable to remove font from fontdir (%s)" % (ff))
                 else:
@@ -441,8 +441,7 @@ def vdataBuild():
     """
     Query MongoDB and build data structures prior to transcoding
     """
-    global monjer
-    conf = __main__.xsetup.config
+    global monjer, config
 
     vx.fdi = monjer.findOne('files', { '_id': vinfo.id })
     if vx.fdi:
@@ -466,9 +465,9 @@ def vdataBuild():
             logthis("Entry does not already exist. Populating video metadata",loglevel=LL.INFO)
             vinfo.mxmode = MXM.INSERT
             # Check location
-            if conf['vid']['location']:
+            if config.vid['location']:
                 # Get from running config (--vername option or vid.vername)
-                vinfo.location = conf['vid']['location']
+                vinfo.location = config.vid['location']
             else:
                 # Otherwise, get first location from list
                 vinfo.location = vx.fdi['location'].keys()[0]
@@ -498,9 +497,9 @@ def vdataBuild():
                             'stat': vx.fdi['location'][vinfo.location]['stat']
                         },
                     'subs': {
-                            'enabled': trueifset(conf['run']['bake'],typematch=True),
+                            'enabled': trueifset(config.run['bake'],typematch=True),
                             'lang': 'eng',
-                            'fansub': setifset(conf['run'], 'fansub')
+                            'fansub': setifset(config.run, 'fansub')
                         },
                     'versions': {}
                    }

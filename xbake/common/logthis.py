@@ -1,22 +1,21 @@
 #!/usr/bin/env python
 # coding=utf-8
-###############################################################################
-#
-# logthis - xbake/common/logthis.py
-# XBake: Logging functions
-#
-# @author   J. Hipps <jacob@ycnrg.org>
-# @repo     https://bitbucket.org/yellowcrescent/yc_xbake
-#
-# Copyright (c) 2013-2015 J. Hipps / Neo-Retro Group
-#
-# https://ycnrg.org/
-#
-###############################################################################
+# vim: set ts=4 sw=4 expandtab syntax=python:
+"""
+
+xbake.common.logthis
+Logging & exception handling facilities
+
+@author   Jacob Hipps <jacob@ycnrg.org>
+@repo     https://git.ycnrg.org/projects/YXB/repos/yc_xbake
+
+Copyright (c) 2013-2016 J. Hipps / Neo-Retro Group, Inc.
+https://ycnrg.org/
+
+"""
 
 import os
 import sys
-import __main__
 import traceback
 import inspect
 import logging
@@ -111,6 +110,8 @@ class LL:
 # set default loglevel
 g_loglevel = LL.INFO
 
+config = None
+
 def logthis(logline,loglevel=LL.DEBUG,prefix=None,suffix=None,ccode=None):
     global g_loglevel
 
@@ -186,8 +187,14 @@ def print_r(ind):
 
 def tstatus(msgtype, **kwargs):
     """output json object with update data"""
-    if __main__.xsetup.config['run']['tsukimi']:
+    if config['run']['tsukimi']:
         xout = { 'msgtype': msgtype }
         xout.update(kwargs)
         sys.stderr.write(json.dumps(xout))
         sys.stderr.flush()
+
+def configure_logging(xconfig):
+    """store configuration for logging module"""
+    global config
+    config = xconfig
+    loglevel(config.core['loglevel'])
