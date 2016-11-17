@@ -33,32 +33,32 @@ def xattr_get(xfile):
 	"""
 	xout = {}
 	try:
-		for k,v in xattr.xattr(xfile).iteritems():
-			xout[k.replace('user.','')] = v
+		for k, v in xattr.xattr(xfile).iteritems():
+			xout[k.replace('user.', '')] = v
 	except Exception as e:
-		logthis("Failed to get extended file attributes for",suffix=xfile,loglevel=LL.WARNING)
-		logthis("xattr:",suffix=e,loglevel=LL.WARNING)
+		logthis("Failed to get extended file attributes for", suffix=xfile, loglevel=LL.WARNING)
+		logthis("xattr:", suffix=e, loglevel=LL.WARNING)
 
 	return xout
 
 
-def xattr_set(xfile,xsetter):
+def xattr_set(xfile, xsetter):
 	"""
 	Set extended file attributes
 	Accepts a dict with attrib names that are not prefixed with the 'user.' namespace
 	"""
-	for k,v in xsetter.iteritems():
+	for k, v in xsetter.iteritems():
 		try:
 			xattr.setxattr(xfile, 'user.'+str(k), str(v))
 		except Exception as e:
-			logthis("Failed to set extended file attributes for",suffix=xfile,loglevel=LL.WARNING)
-			logthis("xattr:",suffix=e,loglevel=LL.WARNING)
+			logthis("Failed to set extended file attributes for", suffix=xfile, loglevel=LL.WARNING)
+			logthis("xattr:", suffix=e, loglevel=LL.WARNING)
 			return False
 
 	return True
 
 
-def xattr_del(xfile,xsetter):
+def xattr_del(xfile, xsetter):
 	"""
 	Remove extended file attributes
 	Accepts a list/array with attrib names that are not prefixed with the 'user.' namespace
@@ -67,8 +67,8 @@ def xattr_del(xfile,xsetter):
 		try:
 			xattr.removexattr(xfile, 'user.'+str(k))
 		except Exception as e:
-			logthis("Failed to remove extended file attributes for",suffix=xfile,loglevel=LL.WARNING)
-			logthis("xattr:",suffix=e,loglevel=LL.WARNING)
+			logthis("Failed to remove extended file attributes for", suffix=xfile, loglevel=LL.WARNING)
+			logthis("xattr:", suffix=e, loglevel=LL.WARNING)
 			return False
 
 	return True

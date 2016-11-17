@@ -41,11 +41,11 @@ class mongo:
         try:
             self.xcon = pymongo.MongoClient()
         except Exception as e:
-            logthis("Failed connecting to Mongo --",loglevel=LL.ERROR,suffix=e)
+            logthis("Failed connecting to Mongo --", loglevel=LL.ERROR, suffix=e)
             return False
 
         self.xcur = self.xcon[self.conndata['database']]
-        if not self.silence: logthis("Connected to Mongo OK",loglevel=LL.INFO,ccode=C.GRN)
+        if not self.silence: logthis("Connected to Mongo OK", loglevel=LL.INFO, ccode=C.GRN)
 
     def find(self, collection, query):
         xresult = {}
@@ -59,13 +59,13 @@ class mongo:
         try:
             self.xcur[collection].update({'_id': monid}, {'$set': setter})
         except Exception as e:
-            logthis("Failed to update document(s) in Mongo --",loglevel=LL.ERROR,suffix=e)
+            logthis("Failed to update document(s) in Mongo --", loglevel=LL.ERROR, suffix=e)
 
     def upsert(self, collection, monid, indata):
         try:
             self.xcur[collection].update({'_id': monid}, indata, upsert=True)
         except Exception as e:
-            logthis("Failed to upsert document in Mongo --",loglevel=LL.ERROR,suffix=e)
+            logthis("Failed to upsert document in Mongo --", loglevel=LL.ERROR, suffix=e)
 
     def findOne(self, collection, query):
         return self.xcur[collection].find_one(query)
@@ -102,7 +102,7 @@ class redis:
     rprefix = 'hota'
     silence = False
 
-    def __init__(self, cdata={}, prefix='',silence=False):
+    def __init__(self, cdata={}, prefix='', silence=False):
         """Initialize Redis"""
         self.silence = silence
         if cdata:
@@ -112,15 +112,15 @@ class redis:
         try:
             self.rcon = xredis.Redis(**self.conndata)
         except Exception as e:
-            logthis("Error connecting to Redis",loglevel=LL.ERROR,suffix=e)
+            logthis("Error connecting to Redis", loglevel=LL.ERROR, suffix=e)
             return
 
-        if not self.silence: logthis("Connected to Redis OK",loglevel=LL.INFO,ccode=C.GRN)
+        if not self.silence: logthis("Connected to Redis OK", loglevel=LL.INFO, ccode=C.GRN)
 
 
     def set(self, xkey, xval, usepipe=False, noprefix=False):
         if noprefix: zkey = xkey
-        else:        zkey = '%s:%s' % (self.rprefix, xkey)
+        else: zkey = '%s:%s' % (self.rprefix, xkey)
         if usepipe:
             xrez = self.rpipe.set(zkey, xval)
         else:
@@ -129,7 +129,7 @@ class redis:
 
     def get(self, xkey, usepipe=False, noprefix=False):
         if noprefix: zkey = xkey
-        else:        zkey = '%s:%s' % (self.rprefix, xkey)
+        else: zkey = '%s:%s' % (self.rprefix, xkey)
         if usepipe:
             xrez = self.rpipe.set(zkey)
         else:
@@ -148,46 +148,46 @@ class redis:
 
     def keys(self, xkey, noprefix=False):
         if noprefix: zkey = xkey
-        else:        zkey = '%s:%s' % (self.rprefix, xkey)
+        else: zkey = '%s:%s' % (self.rprefix, xkey)
         return self.rcon.keys(zkey)
 
     def makepipe(self):
         try:
             self.rpipe = self.rcon.pipeline()
         except Exception as e:
-            logthis("Error creating Redis pipeline",loglevel=LL.ERROR,suffix=e)
+            logthis("Error creating Redis pipeline", loglevel=LL.ERROR, suffix=e)
 
     def execpipe(self):
         if self.rpipe:
             self.rpipe.execute()
-            logthis("Redis: No pipeline to execute",loglevel=LL.ERROR)
+            logthis("Redis: No pipeline to execute", loglevel=LL.ERROR)
 
     def count(self):
         return self.rcon.dbsize()
 
-    def llen(self,qname):
+    def llen(self, qname):
         return self.rcon.llen(self.rprefix+":"+qname)
 
-    def lpop(self,qname):
+    def lpop(self, qname):
         return self.rcon.lpop(self.rprefix+":"+qname)
 
-    def lpush(self,qname,xval):
-        return self.rcon.lpush(self.rprefix+":"+qname,xval)
+    def lpush(self, qname, xval):
+        return self.rcon.lpush(self.rprefix+":"+qname, xval)
 
-    def rpop(self,qname):
+    def rpop(self, qname):
         return self.rcon.rpop(self.rprefix+":"+qname)
 
-    def rpush(self,qname,xval):
-        return self.rcon.rpush(self.rprefix+":"+qname,xval)
+    def rpush(self, qname, xval):
+        return self.rcon.rpush(self.rprefix+":"+qname, xval)
 
-    def blpop(self,qname,timeout=0):
-        return self.rcon.blpop(self.rprefix+":"+qname,timeout)
+    def blpop(self, qname, timeout=0):
+        return self.rcon.blpop(self.rprefix+":"+qname, timeout)
 
-    def brpop(self,qname,timeout=0):
-        return self.rcon.brpop(self.rprefix+":"+qname,timeout)
+    def brpop(self, qname, timeout=0):
+        return self.rcon.brpop(self.rprefix+":"+qname, timeout)
 
-    def brpoplpush(self,qsname,qdname,timeout=0):
-        return self.rcon.brpoplpush(self.rprefix+":"+qsname,self.rprefix+":"+qdname,timeout)
+    def brpoplpush(self, qsname, qdname, timeout=0):
+        return self.rcon.brpoplpush(self.rprefix+":"+qsname, self.rprefix+":"+qdname, timeout)
 
     def __del__(self):
         pass

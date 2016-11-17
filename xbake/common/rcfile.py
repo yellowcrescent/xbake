@@ -24,7 +24,7 @@ import ConfigParser
 from xbake import defaults
 from xbake.common.logthis import *
 
-rcfiles = [ './xbake.conf', '~/.xbake/xbake.conf', '~/.xbake', '/etc/xbake.conf' ]
+rcfiles = ['./xbake.conf', '~/.xbake/xbake.conf', '~/.xbake', '/etc/xbake.conf']
 rcpar = None
 
 
@@ -69,16 +69,16 @@ def rcList(xtraConf=None):
         xcf = os.path.expanduser(xtraConf)
         if os.path.exists(xcf):
             rcc.append(xcf)
-            logthis("Added rcfile candidate (from command line):",suffix=xcf,loglevel=LL.DEBUG)
+            logthis("Added rcfile candidate (from command line):", suffix=xcf, loglevel=LL.DEBUG)
         else:
-            logthis("Specified rcfile does not exist:",suffix=xcf,loglevel=LL.ERROR)
+            logthis("Specified rcfile does not exist:", suffix=xcf, loglevel=LL.ERROR)
 
     for tf in rcfiles:
         ttf = os.path.expanduser(tf)
-        logthis("Checking for rcfile candidate",suffix=ttf,loglevel=LL.DEBUG2)
+        logthis("Checking for rcfile candidate", suffix=ttf, loglevel=LL.DEBUG2)
         if os.path.exists(ttf):
             rcc.append(ttf)
-            logthis("Got rcfile candidate",suffix=ttf,loglevel=LL.DEBUG2)
+            logthis("Got rcfile candidate", suffix=ttf, loglevel=LL.DEBUG2)
 
     return rcc
 
@@ -91,7 +91,7 @@ def parse(xtraConf=None):
     global rcpar
     # get rcfile list
     rcl = rcList(xtraConf)
-    logthis("Parsing any local, user, or system RC files...",loglevel=LL.DEBUG)
+    logthis("Parsing any local, user, or system RC files...", loglevel=LL.DEBUG)
 
     # use ConfigParser to parse the rcfiles
     # TODO: only first file is parsed for now, implement override system eventually
@@ -99,32 +99,32 @@ def parse(xtraConf=None):
     rcfile = None
     if len(rcl):
         rcfile = os.path.realpath(rcl[0])
-        logthis("Parsing config file:",suffix=rcfile,loglevel=LL.VERBOSE)
+        logthis("Parsing config file:", suffix=rcfile, loglevel=LL.VERBOSE)
         try:
             # use ConfigParser.readfp() so that we can correctly parse UTF-8 stuffs
             # ...damn you python 2 and your shitty unicode bodgery
-            with codecs.open(rcfile,'r',encoding='utf-8') as f:
+            with codecs.open(rcfile, 'r', encoding='utf-8') as f:
                 rcpar.readfp(f)
         except ConfigParser.ParsingError as e:
-            logthis("Error parsing config file: %s" % e,loglevel=LL.ERROR)
+            logthis("Error parsing config file: %s" % e, loglevel=LL.ERROR)
             return False
 
     # build a dict
     rcdict = {}
     rsecs = rcpar.sections()
-    logthis("Config sections:",suffix=rsecs,loglevel=LL.DEBUG2)
+    logthis("Config sections:", suffix=rsecs, loglevel=LL.DEBUG2)
     for ss in rsecs:
         isecs = rcpar.items(ss)
         rcdict[ss] = {}
         for ii in isecs:
-            logthis(">> %s" % ii[0],suffix=ii[1],loglevel=LL.DEBUG2)
+            logthis(">> %s" % ii[0], suffix=ii[1], loglevel=LL.DEBUG2)
             rcdict[ss][ii[0]] = ii[1]
 
     # return loaded filename and rcdata
     return (rcfile, rcdict)
 
 
-def merge(inrc,cops):
+def merge(inrc, cops):
     """
     Merge options from loaded rcfile with defaults; strip quotes and perform type-conversion.
     Any defined value set in the config will override the default value.
@@ -137,7 +137,7 @@ def merge(inrc,cops):
             outrc[dsec] = {}
         # loop through the keys
         for dkey in defaults[dsec]:
-            logthis("** Option:",prefix="defaults",suffix="%s => %s => '%s'" % (dsec,dkey,defaults[dsec][dkey]),loglevel=LL.DEBUG2)
+            logthis("** Option:", prefix="defaults", suffix="%s => %s => '%s'" % (dsec, dkey, defaults[dsec][dkey]), loglevel=LL.DEBUG2)
             outrc[dsec][dkey] = defaults[dsec][dkey]
 
     # set options defined in rcfile, overriding defaults
@@ -161,20 +161,20 @@ def merge(inrc,cops):
                     try:
                         tkval = int(qstrip(inrc[dsec][dkey]))
                     except ValueError as e:
-                        logthis("Unable to convert value to integer. Check config option value. Value:",prefix="%s:%s" % (dsec,dkey),suffix=qstrip(inrc[dsec][dkey]),loglevel=LL.ERROR)
+                        logthis("Unable to convert value to integer. Check config option value. Value:", prefix="%s:%s" % (dsec, dkey), suffix=qstrip(inrc[dsec][dkey]), loglevel=LL.ERROR)
                         continue
                 elif type(outrc[dsec][dkey]) == float:
                     try:
                         tkval = float(qstrip(inrc[dsec][dkey]))
                     except ValueError as e:
-                        logthis("Unable to convert value to float. Check config option value. Value:",prefix="%s:%s" % (dsec,dkey),suffix=qstrip(inrc[dsec][dkey]),loglevel=LL.ERROR)
+                        logthis("Unable to convert value to float. Check config option value. Value:", prefix="%s:%s" % (dsec, dkey), suffix=qstrip(inrc[dsec][dkey]), loglevel=LL.ERROR)
                         continue
                 else:
                     tkval = qstrip(inrc[dsec][dkey])
             else:
                 tkval = qstrip(inrc[dsec][dkey])
 
-            logthis("** Option set:",prefix="rcfile",suffix="%s => %s => '%s'" % (dsec,dkey,tkval),loglevel=LL.DEBUG2)
+            logthis("** Option set:", prefix="rcfile", suffix="%s => %s => '%s'" % (dsec, dkey, tkval), loglevel=LL.DEBUG2)
             outrc[dsec][dkey] = tkval
 
     # add in cli options
@@ -186,7 +186,7 @@ def merge(inrc,cops):
         for dkey in cops[dsec]:
             # only if the value has actually been set (eg. non-false)
             if cops[dsec][dkey]:
-                logthis("** Option:",prefix="cliopts",suffix="%s => %s => '%s'" % (dsec,dkey,cops[dsec][dkey]),loglevel=LL.DEBUG2)
+                logthis("** Option:", prefix="cliopts", suffix="%s => %s => '%s'" % (dsec, dkey, cops[dsec][dkey]), loglevel=LL.DEBUG2)
                 outrc[dsec][dkey] = cops[dsec][dkey]
 
     return outrc
@@ -194,7 +194,7 @@ def merge(inrc,cops):
 
 def qstrip(inval):
     # Strip quotes from quote-delimited strings
-    rxm = re.match('^([\"\'])(.+)(\\1)$',inval)
+    rxm = re.match('^([\"\'])(.+)(\\1)$', inval)
     if rxm:
         return rxm.groups()[1]
     else:
@@ -204,18 +204,18 @@ def optexpand(iop):
     # expand CLI options like "xcode.scale" from 1D to 2D array/dict (like [xcode][scale])
     outrc = {}
     for i in iop:
-        dsec,dkey = i.split(".")
+        dsec, dkey = i.split(".")
         if not outrc.has_key(dsec):
             outrc[dsec] = {}
         outrc[dsec][dkey] = iop[i]
-    logthis("Expanded cli optdex:",suffix=outrc,loglevel=LL.DEBUG2)
+    logthis("Expanded cli optdex:", suffix=outrc, loglevel=LL.DEBUG2)
     return outrc
 
-def loadConfig(xtraConf=None,cliopts=None):
+def loadConfig(xtraConf=None, cliopts=None):
     """
     Top-level class for loading configuration from xbake.conf
     """
-    rcfile,rci = parse(xtraConf)
+    rcfile, rci = parse(xtraConf)
     cxopt = optexpand(cliopts)
-    optrc = merge(rci,cxopt)
+    optrc = merge(rci, cxopt)
     return XConfig(optrc)

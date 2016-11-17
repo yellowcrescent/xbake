@@ -55,7 +55,7 @@ def run(xconfig):
         vinfo_id = config.run['id']
     elif config.vid['autoid']:
         vinfo_id = util.md5sum(config.run['infile'])
-        logthis("MD5 Checksum:",suffix=vinfo.id,loglevel=LL.INFO)
+        logthis("MD5 Checksum:", suffix=vinfo.id, loglevel=LL.INFO)
     else:
         vinfo_id = None
 
@@ -69,18 +69,18 @@ def run(xconfig):
         vc_offset = get_magic_offset(vinfo_id)
         logthis("No frame capture offset specified. Determining one automagically.", loglevel=LL.INFO)
 
-    vsdata = sscapture(config.run['infile'],config.run['vscap'])
+    vsdata = sscapture(config.run['infile'], config.run['vscap'])
 
     # Update Mongo entry
-    zdata = monjer.findOne('videos', { '_id': vinfo_id })
+    zdata = monjer.findOne('videos', {'_id': vinfo_id})
     if zdata:
         zdata['vscap'] = vsdata
         monjer.upsert('videos', vinfo_id, zdata)
-        logthis("Entry updated OK",loglevel=LL.INFO)
+        logthis("Entry updated OK", loglevel=LL.INFO)
     else:
         logthis("No entry found, skipping update")
 
-    logthis("*** Screenshot task completed successfully.",loglevel=LL.INFO)
+    logthis("*** Screenshot task completed successfully.", loglevel=LL.INFO)
     return 0
 
 
@@ -91,14 +91,14 @@ def get_magic_offset(id):
     if vinfo_id:
         # get chapter list
         try:
-            vdata = monjer.findOne("files", { '_id': id })
+            vdata = monjer.findOne("files", {'_id': id})
             clist = vdata['mediainfo']['menu']
         except Exception as e:
-            logthis("Failed to retrieve menu list for input file:",suffix=e,loglevel=LL.VERBOSE)
+            logthis("Failed to retrieve menu list for input file:", suffix=e, loglevel=LL.VERBOSE)
             clist = []
 
         # filter out any nasties
-        cfilter = re.compile('(^(nc)?(op|ed)$|intro|synopsis|preview|recap|last|eyecatch|interlude|break)',re.I)
+        cfilter = re.compile('(^(nc)?(op|ed)$|intro|synopsis|preview|recap|last|eyecatch|interlude|break)', re.I)
         clist = filter(lambda x: not cfilter.search(x['title']), clist)
 
         if len(clist) > 0:

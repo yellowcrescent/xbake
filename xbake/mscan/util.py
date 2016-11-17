@@ -36,18 +36,18 @@ def md5sum(fname):
     return rhash(fname, "md5")['md5']
 
 def checksum(fname):
-    return rhash(fname, ["md5","CRC32","ed2k"])
+    return rhash(fname, ["md5", "CRC32", "ed2k"])
 
-def rhash(infile,hlist):
+def rhash(infile, hlist):
     global rhpath
-    if isinstance(hlist,str):
-        hxlist = [ hlist ]
+    if isinstance(hlist, str):
+        hxlist = [hlist]
     else:
         hxlist = hlist
     hxpf = ""
     for i in hxlist:
         hxpf += "%%{%s} " % i
-    rout = subprocess.check_output([bpath.rhash,'--printf',hxpf,infile])
+    rout = subprocess.check_output([bpath.rhash, '--printf', hxpf, infile])
     rolist = rout.split(' ')
     hout = {}
     k = 0
@@ -64,7 +64,7 @@ def dstat(infile):
     Wrapper around os.stat(), which returns the output as a dict instead of an object
     """
     fsx = os.stat(infile)
-    sout =  {
+    sout = {
                 'dev': fsx.st_dev,
                 'ino': fsx.st_ino,
                 'mode': fsx.st_mode,
@@ -102,14 +102,14 @@ class MIP:
     LOWER = 256
     DIV1000 = 512
 
-MILUT =  {
+MILUT = {
             'id': MIP.COPY,
             'unique_id': MIP.STRCOPY,
-            'format': MIP.COPY|MIP.LOWER,
+            'format': MIP.COPY |MIP.LOWER,
             'format_profile': MIP.COPY,
             'codec_id': MIP.COPY,
-            'duration': MIP.FLOAT|MIP.DIV1000,
-            'overall_bit_rate': MIP.FLOAT|MIP.DIV1000,
+            'duration': MIP.FLOAT |MIP.DIV1000,
+            'overall_bit_rate': MIP.FLOAT |MIP.DIV1000,
             'encoded_date': MIP.DATE,
             'writing_application': MIP.COPY,
             'writing_library': MIP.COPY,
@@ -122,10 +122,10 @@ MILUT =  {
             'color_space': MIP.COPY,
             'chroma_subsampling': MIP.COPY,
             'bit_depth': MIP.COPY,
-            'scan_type': MIP.COPY|MIP.LOWER,
+            'scan_type': MIP.COPY |MIP.LOWER,
             'title': MIP.COPY,
-            'language': MIP.COPY|MIP.LOWER,
-            'channel_s': { 'do': MIP.COPY, 'name': "channels" },
+            'language': MIP.COPY |MIP.LOWER,
+            'channel_s': {'do': MIP.COPY, 'name': "channels"},
             'sampling_rate': MIP.COPY,
             'default': MIP.BOOL,
             'forced': MIP.BOOL
@@ -134,32 +134,32 @@ MILUT =  {
 def mediainfo(fname):
     global MILUT
 
-    logthis("Parsing mediainfo from file:",suffix=fname,loglevel=LL.VERBOSE)
+    logthis("Parsing mediainfo from file:", suffix=fname, loglevel=LL.VERBOSE)
 
     # parse output of mediainfo and convert raw XML with pymediainfo
     miobj = MediaInfo.parse(fname)
     miraw = miobj.to_data()['tracks']
 
     # create outdata for the important stuff
-    outdata = { 'general': {}, 'video': [], 'audio': [], 'text': [], 'menu': [] }
+    outdata = {'general': {}, 'video': [], 'audio': [], 'text': [], 'menu': []}
 
     # interate over data and build nicely pruned output array
     for tt in miraw:
         ttype = tt['track_type'].lower()
         tblock = {}
-        for tkey,tval in tt.items():
+        for tkey, tval in tt.items():
             # Check all menu items (chapters)
             if ttype == 'menu':
                 # We only care about the actual chapters/markers with timestamps
-                tss = re.match('^(?P<hour>[0-9]{2})_(?P<min>[0-9]{2})_(?P<msec>[0-9]{5})$',tkey)
+                tss = re.match('^(?P<hour>[0-9]{2})_(?P<min>[0-9]{2})_(?P<msec>[0-9]{5})$', tkey)
                 if tss:
                     mts = tss.groupdict()
-                    mtt = re.match('^(?P<lang>[a-z]{2})?:?(?P<title>.+)$',tval).groupdict()
+                    mtt = re.match('^(?P<lang>[a-z]{2})?:?(?P<title>.+)$', tval).groupdict()
                     mti = {
                             'offset': (float(mts['hour']) * 3600.0) + (float(mts['min']) * 60.0) + (float(mts['msec']) / 1000.0),
-                            'title': mtt.get('title',""),
-                            'lang': mtt.get('lang',"en"),
-                            'tstamp': "%02d:%02d:%06.3f" % (int(mts['hour']),int(mts['min']),(float(mts['msec']) / 1000.0))
+                            'title': mtt.get('title', ""),
+                            'lang': mtt.get('lang', "en"),
+                            'tstamp': "%02d:%02d:%06.3f" % (int(mts['hour']), int(mts['min']), (float(mts['msec']) / 1000.0))
                           }
                     outdata['menu'].append(mti)
 
@@ -182,7 +182,7 @@ def mediainfo(fname):
 
                 # check for dupes
                 if tblock.has_key(tname):
-                    logthis("Ignoring duplicate attribute:",suffix=tname,loglevel=LL.VERBOSE)
+                    logthis("Ignoring duplicate attribute:", suffix=tname, loglevel=LL.VERBOSE)
                     continue
 
                 # exec opcode
@@ -198,11 +198,11 @@ def mediainfo(fname):
                     elif tcmd & MIP.BOOL:
                         tblock[tname] = bool(tval)
                     elif tcmd & MIP.DATE:
-                        tblock[tname] = int(time.mktime(time.strptime(tval,'%Z %Y-%m-%d %H:%M:%S')))
+                        tblock[tname] = int(time.mktime(time.strptime(tval, '%Z %Y-%m-%d %H:%M:%S')))
                     else:
                         failwith(ER.NOTIMPL, "Specified tcmd opcode not implemented.")
                 except Exception as e:
-                    logthis("Failed to parse mediainfo output:",prefix=tname,suffix=e,loglevel=LL.WARNING)
+                    logthis("Failed to parse mediainfo output:", prefix=tname, suffix=e, loglevel=LL.WARNING)
                     continue
 
                 # post-filters
@@ -217,6 +217,6 @@ def mediainfo(fname):
         elif ttype != 'menu':
             outdata[ttype].append(tblock)
 
-    logthis("Got mediainfo for file:\n",suffix=outdata,loglevel=LL.DEBUG2)
+    logthis("Got mediainfo for file:\n", suffix=outdata, loglevel=LL.DEBUG2)
 
     return outdata

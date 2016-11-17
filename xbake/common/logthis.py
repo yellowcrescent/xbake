@@ -80,7 +80,7 @@ class ER:
             }
 
 class xbError(Exception):
-    def __init__(self,etype):
+    def __init__(self, etype):
         self.etype = etype
     def __str__(self):
         return ER.lname[self.etype]
@@ -112,7 +112,7 @@ g_loglevel = LL.INFO
 
 config = None
 
-def logthis(logline,loglevel=LL.DEBUG,prefix=None,suffix=None,ccode=None):
+def logthis(logline, loglevel=LL.DEBUG, prefix=None, suffix=None, ccode=None):
     global g_loglevel
 
     zline = ''
@@ -144,11 +144,11 @@ def logthis(logline,loglevel=LL.DEBUG,prefix=None,suffix=None,ccode=None):
         lfunc = "(main)"
 
     if g_loglevel > LL.INFO:
-        dbxmod = '%s[%s:%s%s%s:%s] ' % (C.WHT,lmodname,C.YEL,lfunc,C.WHT,lline)
+        dbxmod = '%s[%s:%s%s%s:%s] ' % (C.WHT, lmodname, C.YEL, lfunc, C.WHT, lline)
     else:
         dbxmod = ''
 
-    finline = '%s%s<%s>%s %s%s\n' % (dbxmod,C.RED,LL.lname[loglevel],C.WHT,zline,C.OFF)
+    finline = '%s%s<%s>%s %s%s\n' % (dbxmod, C.RED, LL.lname[loglevel], C.WHT, zline, C.OFF)
 
     # write log message
     # TODO: add syslog (/dev/log) functionality
@@ -159,11 +159,11 @@ def logthis(logline,loglevel=LL.DEBUG,prefix=None,suffix=None,ccode=None):
     if loglevel <= LL.ERROR:
         tstatus('error', msg="%s %s" % (logline, suffix))
 
-def logexc(e,msg,prefix=None):
+def logexc(e, msg, prefix=None):
     """log exception"""
     if msg: msg += ": "
     suffix = C.WHT + u"[" + C.YEL + str(e.__class__.__name__) + C.WHT + u"] " + C.YEL + str(e)
-    logthis(msg,LL.ERROR,prefix,suffix)
+    logthis(msg, LL.ERROR, prefix, suffix)
     tstatus('exception', msg=msg, eclass=e.__name__, prefix=prefix)
 
 def loglevel(newlvl=None):
@@ -172,8 +172,8 @@ def loglevel(newlvl=None):
         g_loglevel = newlvl
     return g_loglevel
 
-def failwith(etype,errmsg):
-    logthis(errmsg,loglevel=LL.ERROR)
+def failwith(etype, errmsg):
+    logthis(errmsg, loglevel=LL.ERROR)
     tstatus('fail', etype=ER.lname[etype], msg=errmsg)
 
     raise xbError(etype)
@@ -183,12 +183,12 @@ def exceptionHandler(exception_type, exception, traceback):
     print "%s: %s" % (exception_type.__name__, exception)
 
 def print_r(ind):
-    return json.dumps(ind,indent=4,separators=(',', ': '))
+    return json.dumps(ind, indent=4, separators=(',', ': '))
 
 def tstatus(msgtype, **kwargs):
     """output json object with update data"""
     if config['run']['tsukimi']:
-        xout = { 'msgtype': msgtype }
+        xout = {'msgtype': msgtype}
         xout.update(kwargs)
         sys.stderr.write(json.dumps(xout))
         sys.stderr.flush()

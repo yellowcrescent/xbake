@@ -22,7 +22,7 @@ from xbake.common.logthis import LL
 __version__ = "0.10.181"
 __date__ = "10 Nov 2016"
 
-defaults =  {
+defaults = {
                 'run': {
                     'mode': None,
                     'infile': None,
