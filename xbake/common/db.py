@@ -13,39 +13,57 @@ Copyright (c) 2013-2016 J. Hipps / Neo-Retro Group, Inc.
 https://ycnrg.org/
 
 """
+# pylint: disable=old-style-class,missing-docstring
 
-import sys
-import os
-import re
-import json
-import signal
-import time
-import pymongo
+from urlparse import urlparse
+
+from pymongo import MongoClient
+from pymongo.errors import *
 import redis as xredis
 
-from xbake.common.logthis import *
+from xbake import defaults
+from xbake.common.rcfile import XConfig
 
 
 class mongo:
     """Hotamod class for handling Mongo stuffs"""
     xcon = None
     xcur = None
-    conndata = {}
     silence = False
 
-    def __init__(self, cdata={}, silence=False):
+    def __init__(self, condata=None, silence=False):
         """Initialize and connect to MongoDB"""
-        self.silence = silence
-        if cdata:
-            self.conndata = cdata
-        try:
-            self.xcon = pymongo.MongoClient()
-        except Exception as e:
-            logthis("Failed connecting to Mongo --", loglevel=LL.ERROR, suffix=e)
-            return False
+        from xbake.common.logthis import LL, ER, C, logthis, logexc, failwith
 
-        self.xcur = self.xcon[self.conndata['database']]
-        if not self.silence: logthis("Connected to Mongo OK", loglevel=LL.INFO, ccode=C.GRN)
+        # decode connection data
+        if isinstance(condata, XConfig):
+            condata = condata._todict()
+        elif isinstance(condata, str) or isinstance(condata, unicode):
+            condata = {'uri': condata}
+
+        uri = condata.get('uri', defaults['mongo']['uri'])
+
+        self.silence = silence
+        try:
+            self.xcon = MongoClient(uri)
+        except InvalidURI as e:
+            logexc(e, "Invalid mongodb URI (%s)" % (uri))
+            failwith(ER.CONF_BAD, "Invalid MongoDB configuration")
+        except ConfigurationError as e:
+            logexc(e, "Invalid mongodb URI (%s)" % (uri))
+            failwith(ER.CONF_BAD, "Invalid MongoDB configuration")
+        except Exception as e:
+            logexc(e, "Failed to connect to MongoDB (%s)" % (uri))
+            failwith(ER.CONF_BAD, "Unable to connect to MongoDB. Please check configuration.")
+
+        muri = urlparse(uri)
+        if len(muri.path) > 1:
+            self.xcur = self.xcon[muri.path[1:]]
+            if not self.silence: logthis("Connected to Mongo OK", loglevel=LL.DEBUG, ccode=C.GRN)
+        else:
+            logthis("MongoDB URI provided does not include a database (example: 'mongodb://localhost/mydatabase')",
+                    loglevel=LL.ERROR)
+            failwith(ER.CONF_BAD, "Invalid MongoDB configuration")
 
     def find(self, collection, query):
         xresult = {}
@@ -57,15 +75,15 @@ class mongo:
 
     def update_set(self, collection, monid, setter):
         try:
-            self.xcur[collection].update({'_id': monid}, {'$set': setter})
-        except Exception as e:
-            logthis("Failed to update document(s) in Mongo --", loglevel=LL.ERROR, suffix=e)
+            return self.xcur[collection].update({'_id': monid}, {'$set': setter})
+        except:
+            return None
 
     def upsert(self, collection, monid, indata):
         try:
-            self.xcur[collection].update({'_id': monid}, indata, upsert=True)
-        except Exception as e:
-            logthis("Failed to upsert document in Mongo --", loglevel=LL.ERROR, suffix=e)
+            return self.xcur[collection].update({'_id': monid}, indata, upsert=True)
+        except:
+            return None
 
     def findOne(self, collection, query):
         return self.xcur[collection].find_one(query)
@@ -83,16 +101,23 @@ class mongo:
         for trez in self.xcur[collection].find().skip(start).limit(1):
             return trez
 
+    def delete(self, collection, query):
+        return self.xcur[collection].delete_one(query)
+
+    def get_collections(self):
+        return self.xcur.collection_names()
+
+    def create_collection(self, collection, **kwargs):
+        return self.xcur.create_collection(collection, **kwargs)
+
     def close(self):
         if self.xcon:
             self.xcon.close()
-            if not self.silence: logthis("Disconnected from Mongo")
 
     def __del__(self):
         """Disconnect from MongoDB"""
         if self.xcon:
             self.xcon.close()
-            #if not self.silence: logthis("Disconnected from Mongo")
 
 class redis:
     """Hotamod class for Redis stuffs"""
@@ -102,20 +127,24 @@ class redis:
     rprefix = 'hota'
     silence = False
 
-    def __init__(self, cdata={}, prefix='', silence=False):
+    def __init__(self, cdata=None, prefix='', silence=False):
         """Initialize Redis"""
+        from xbake.common.logthis import LL, ER, C, logthis, logexc, failwith
         self.silence = silence
-        if cdata:
+        if cdata is None:
+            self.conndata = {'host': "localhost"}
+        else:
             self.conndata = cdata
         if prefix:
             self.rprefix = prefix
         try:
-            self.rcon = xredis.Redis(**self.conndata)
+            self.rcon = xredis.Redis(encoding='utf-8', decode_responses=True, **self.conndata)
         except Exception as e:
             logthis("Error connecting to Redis", loglevel=LL.ERROR, suffix=e)
             return
 
-        if not self.silence: logthis("Connected to Redis OK", loglevel=LL.INFO, ccode=C.GRN)
+        if not self.silence:
+            logthis("Connected to Redis OK", loglevel=LL.INFO, ccode=C.GRN)
 
 
     def set(self, xkey, xval, usepipe=False, noprefix=False):
@@ -144,7 +173,10 @@ class redis:
         return xrez
 
     def exists(self, xkey, noprefix=False):
-        return self.rcon.exists('%s:%s' % (self.rprefix, xkey))
+        if noprefix:
+            return self.rcon.exists(xkey)
+        else:
+            return self.rcon.exists('%s:%s' % (self.rprefix, xkey))
 
     def keys(self, xkey, noprefix=False):
         if noprefix: zkey = xkey
@@ -154,13 +186,15 @@ class redis:
     def makepipe(self):
         try:
             self.rpipe = self.rcon.pipeline()
-        except Exception as e:
-            logthis("Error creating Redis pipeline", loglevel=LL.ERROR, suffix=e)
+        except:
+            self.rpipe = None
 
     def execpipe(self):
         if self.rpipe:
-            self.rpipe.execute()
-            logthis("Redis: No pipeline to execute", loglevel=LL.ERROR)
+            try:
+                return self.rpipe.execute()
+            except:
+                return None
 
     def count(self):
         return self.rcon.dbsize()
@@ -188,8 +222,3 @@ class redis:
 
     def brpoplpush(self, qsname, qdname, timeout=0):
         return self.rcon.brpoplpush(self.rprefix+":"+qsname, self.rprefix+":"+qdname, timeout)
-
-    def __del__(self):
-        pass
-        #if not self.silence: logthis("Disconnected from Redis")
-

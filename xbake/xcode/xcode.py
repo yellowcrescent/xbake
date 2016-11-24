@@ -14,13 +14,7 @@ https://ycnrg.org/
 
 """
 
-import sys
 import os
-import re
-import json
-import signal
-import time
-import subprocess
 import enzyme
 
 from xbake.common.logthis import *
@@ -32,7 +26,7 @@ class MXM:
     """
     Entry update modes
     """
-    NONE   = 0
+    NONE = 0
     INSERT = 1
     UPDATE = 2
 
@@ -62,6 +56,7 @@ class vinfo:
     """
     Video identification info
     """
+    # pylint: disable=missing-docstring
     id = None
     location = None
     mxmode = None
@@ -78,7 +73,7 @@ class vinfo:
         file = None
         path = None
         base = None
-        ext  = None
+        ext = None
         full = None
     class outfile:
         file = None
@@ -165,13 +160,13 @@ def sscapture(infile, offset):
 
     # split up infile
     i_real = os.path.realpath(os.path.expanduser(infile))
-    i_path, i_file = os.path.split(infile)
-    i_base, i_ext  = os.path.splitext(i_file)
+    i_path, i_file = os.path.split(infile)  # pylint: disable=unused-variable
+    i_base, i_ext = os.path.splitext(i_file)  # pylint: disable=unused-variable
 
     # build filename & path stuffs
-    ssout   = i_base + '.png'
+    ssout = i_base + '.png'
     ssoutwp = i_base + '.webp'
-    ssdir = os.path.realpath(os.path.expanduser(config.vscap['basedir']))
+    ssdir = os.path.realpath(os.path.expanduser(config.vscap['basedir']))  # pylint: disable=unused-variable
     ssdir_full = config.vscap['basedir'] + '/full'
     ssdir_480 = config.vscap['basedir'] + '/480'
     ssdir_240 = config.vscap['basedir'] + '/240'
@@ -211,7 +206,7 @@ def transcode(infile, outfile=None):
     # Split apart the input file, path, and extension
     vinfo.infile.full = os.path.realpath(os.path.expanduser(infile))
     vinfo.infile.path, vinfo.infile.file = os.path.split(vinfo.infile.full)
-    vinfo.infile.base, vinfo.infile.ext  = os.path.splitext(vinfo.infile.file)
+    vinfo.infile.base, vinfo.infile.ext = os.path.splitext(vinfo.infile.file)
 
     # Get Matroska data
     logthis("Getting Matroska data", loglevel=LL.DEBUG)
@@ -255,7 +250,7 @@ def transcode(infile, outfile=None):
 
         # Get important bits of track data
         vinfo.sub.track = vinfo.sub.tdata['number'] - 1
-        vinfo.sub.type  = vinfo.sub.tdata['codec_id']
+        vinfo.sub.type = vinfo.sub.tdata['codec_id']
 
         # Set ffmpeg options for subs
         # For ASS subs, dump font attachments
@@ -296,7 +291,7 @@ def transcode(infile, outfile=None):
 
     # Get important bits of track data
     vinfo.aud.track = vinfo.aud.tdata['number'] - 1
-    vinfo.aud.type  = vinfo.aud.tdata['codec_id']
+    vinfo.aud.type = vinfo.aud.tdata['codec_id']
     vinfo.aud.channels = vinfo.aud.tdata['channels']
 
     # Determine if we need to transcode the audio
@@ -520,19 +515,21 @@ def getMatroska(vfile):
     """
     try:
         with open(vfile) as f: mkv = enzyme.MKV(f)
-    except MalformedMKVError as e:
-        logthis("Not a Matroska container or segment is corrupt.", loglevel=LL.DEBUG)
+    except enzyme.MalformedMKVError as e:
+        logexc(e, "Not a Matroska container or segment is corrupt")
         return False
     return mkv.to_dict()
 
 
 def setifset(idict, ikey):
-    if idict.has_key(ikey):
+    """return value from @idict if it exists, otherwise None"""
+    if ikey in idict:
         return idict[ikey]
     else:
         return False
 
 def trueifset(xeval, typematch=False):
+    """return True if @xeval is set, otherwise False"""
     if typematch:
         if not (xeval is False or xeval is None): return True
         else: return False
@@ -541,6 +538,7 @@ def trueifset(xeval, typematch=False):
         else: return False
 
 def strifset(xeval, iftrue, iffalse="", typematch=False):
+    """return @iftrue if statement True, otherwise return @iffalse"""
     if typematch:
         if not (xeval is False or xeval is None): return iftrue
         else: return iffalse

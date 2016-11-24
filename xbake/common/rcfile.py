@@ -15,9 +15,8 @@ https://ycnrg.org/
 """
 
 import os
-import sys
 import re
-import signal
+import json
 import codecs
 import ConfigParser
 
@@ -37,12 +36,23 @@ class XConfig(object):
     def __init__(self, idata):
         self.__data = idata
 
+    def _dump(self):
+        return json.dumps(self.__data)
+
+    def _todict(self):
+        return json.loads(json.dumps(self.__data))
+
+    def _clone(self):
+        return XConfig(json.loads(json.dumps(self.__data)))
+
     def __getattr__(self, aname):
         if aname in self.__data:
             if isinstance(self.__data[aname], dict):
                 return XConfig(self.__data[aname])
             else:
                 return self.__data[aname]
+        elif isinstance(aname, int):
+            return self.__data.keys()[aname]
         else:
             raise KeyError(aname)
 
@@ -56,12 +66,13 @@ class XConfig(object):
         return print_r(self.__data)
 
     def __repr__(self):
-        return "<XConfig: srv.url=%s, srv.port=%s, core.tclient=%s, xmpp.user=%s, ...>" % \
-               (self.__data['srv']['url'], self.__data['srv']['port'],
-                self.__data['core']['tclient'], self.__data['xmpp']['user'])
+        return "<XConfig>"
 
 
 def rcList(xtraConf=None):
+    """
+    build list of config files to parse
+    """
     global rcfiles
     rcc = []
 
@@ -94,7 +105,7 @@ def parse(xtraConf=None):
     logthis("Parsing any local, user, or system RC files...", loglevel=LL.DEBUG)
 
     # use ConfigParser to parse the rcfiles
-    # TODO: only first file is parsed for now, implement override system eventually
+    # only first file is parsed for now, implement override system eventually
     rcpar = ConfigParser.SafeConfigParser()
     rcfile = None
     if len(rcl):
@@ -157,17 +168,28 @@ def merge(inrc, cops):
             # Strip quotes and perform type-conversion for ints and floats
             # only perform conversion if key exists in defaults
             if keyok:
-                if type(outrc[dsec][dkey]) == int:
+                if isinstance(outrc[dsec][dkey], bool):
+                    try:
+                        if qstrip(inrc[dsec][dkey]).lower() in ['y', 'yes', 'on', 't', 'true', '1']:
+                            tkval = True
+                        elif qstrip(inrc[dsec][dkey]).lower() in ['n', 'no', 'off', 'f', 'false', '0']:
+                            tkval = False
+                        else:
+                            logthis("Unable to cast string to bool:", prefix="%s:%s" % (dsec, dkey), suffix=qstrip(inrc[dsec][dkey]), loglevel=LL.WARNING)
+                    except ValueError as e:
+                        logexc(e, "Unable to cast string to bool; Value: '%s'" % (qstrip(inrc[dsec][dkey])), prefix="%s:%s" % (dsec, dkey))
+                        continue
+                elif isinstance(outrc[dsec][dkey], int):
                     try:
                         tkval = int(qstrip(inrc[dsec][dkey]))
                     except ValueError as e:
-                        logthis("Unable to convert value to integer. Check config option value. Value:", prefix="%s:%s" % (dsec, dkey), suffix=qstrip(inrc[dsec][dkey]), loglevel=LL.ERROR)
+                        logexc(e, "Unable to convert value to integer. Check config option value. Value: '%s'" % (qstrip(inrc[dsec][dkey])), prefix="%s:%s" % (dsec, dkey))
                         continue
-                elif type(outrc[dsec][dkey]) == float:
+                elif isinstance(outrc[dsec][dkey], float):
                     try:
                         tkval = float(qstrip(inrc[dsec][dkey]))
                     except ValueError as e:
-                        logthis("Unable to convert value to float. Check config option value. Value:", prefix="%s:%s" % (dsec, dkey), suffix=qstrip(inrc[dsec][dkey]), loglevel=LL.ERROR)
+                        logexc(e, "Unable to convert value to integer. Check config option value. Value: '%s'" % (qstrip(inrc[dsec][dkey])), prefix="%s:%s" % (dsec, dkey))
                         continue
                 else:
                     tkval = qstrip(inrc[dsec][dkey])
@@ -193,7 +215,9 @@ def merge(inrc, cops):
 
 
 def qstrip(inval):
-    # Strip quotes from quote-delimited strings
+    """
+    Strip quotes from quote-delimited strings
+    """
     rxm = re.match('^([\"\'])(.+)(\\1)$', inval)
     if rxm:
         return rxm.groups()[1]
@@ -201,7 +225,9 @@ def qstrip(inval):
         return inval
 
 def optexpand(iop):
-    # expand CLI options like "xcode.scale" from 1D to 2D array/dict (like [xcode][scale])
+    """
+    expand CLI options like "xcode.scale" from 1D to 2D array/dict (like [xcode][scale])
+    """
     outrc = {}
     for i in iop:
         dsec, dkey = i.split(".")
@@ -215,7 +241,7 @@ def loadConfig(xtraConf=None, cliopts=None):
     """
     Top-level class for loading configuration from xbake.conf
     """
-    rcfile, rci = parse(xtraConf)
+    rcfile, rci = parse(xtraConf)  #pylint: disable=unused-variable
     cxopt = optexpand(cliopts)
     optrc = merge(rci, cxopt)
     return XConfig(optrc)

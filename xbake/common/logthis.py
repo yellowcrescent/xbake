@@ -13,14 +13,11 @@ Copyright (c) 2013-2016 J. Hipps / Neo-Retro Group, Inc.
 https://ycnrg.org/
 
 """
+# pylint: disable=missing-docstring
 
 import os
 import sys
-import traceback
 import inspect
-import logging
-import logging.handlers
-import signal
 import json
 
 class C:
@@ -59,6 +56,7 @@ class C:
         self.XCLEAR = ''
 
 class ER:
+    # pylint: disable=bad-whitespace
     OPT_MISSING = 1
     OPT_BAD     = 2
     CONF_BAD    = 3
@@ -66,7 +64,7 @@ class ER:
     NOTFOUND    = 5
     UNSUPPORTED = 6
     DEPMISSING  = 7
-    NOTIMPL      = 8
+    NOTIMPL     = 8
     lname = {
                 0: 'none',
                 1: 'opt_missing',
@@ -80,12 +78,15 @@ class ER:
             }
 
 class xbError(Exception):
+    """XBake Exception class"""
+    # pylint: disable=super-init-not-called
     def __init__(self, etype):
         self.etype = etype
     def __str__(self):
         return ER.lname[self.etype]
 
 class LL:
+    # pylint: disable=bad-whitespace
     SILENT   = 0
     CRITICAL = 2
     ERROR    = 3
@@ -110,9 +111,14 @@ class LL:
 # set default loglevel
 g_loglevel = LL.INFO
 
-config = None
+_config = None
 
 def logthis(logline, loglevel=LL.DEBUG, prefix=None, suffix=None, ccode=None):
+    """
+    Global logging function; handles log line composition and prints messages to the console
+    and log file
+    """
+    # pylint: disable=redefined-outer-name
     global g_loglevel
 
     zline = ''
@@ -135,10 +141,8 @@ def logthis(logline, loglevel=LL.DEBUG, prefix=None, suffix=None, ccode=None):
 
     if mod:
         lmodname = str(mod.__name__)
-        xmessage = " "
     else:
         lmodname = str(__name__)
-        xmessage = str(data)
     if lmodname == "__main__":
         lmodname = "yc_cpx"
         lfunc = "(main)"
@@ -151,17 +155,18 @@ def logthis(logline, loglevel=LL.DEBUG, prefix=None, suffix=None, ccode=None):
     finline = '%s%s<%s>%s %s%s\n' % (dbxmod, C.RED, LL.lname[loglevel], C.WHT, zline, C.OFF)
 
     # write log message
-    # TODO: add syslog (/dev/log) functionality
-
     if g_loglevel >= loglevel:
         sys.stdout.write(finline)
 
     if loglevel <= LL.ERROR:
         tstatus('error', msg="%s %s" % (logline, suffix))
 
-def logexc(e, msg, prefix=None):
+def logexc(e, msg=None, prefix=None):
     """log exception"""
-    if msg: msg += ": "
+    if msg is not None:
+        msg += ": "
+    else:
+        msg = "Exception logged"
     suffix = C.WHT + u"[" + C.YEL + str(e.__class__.__name__) + C.WHT + u"] " + C.YEL + str(e)
     logthis(msg, LL.ERROR, prefix, suffix)
     tstatus('exception', msg=msg, eclass=e.__name__, prefix=prefix)
@@ -179,15 +184,18 @@ def failwith(etype, errmsg):
     raise xbError(etype)
 
 def exceptionHandler(exception_type, exception, traceback):
+    """exception handler callback"""
+    # pylint: disable=unused-argument
     tstatus('exception', etype=exception_type.__name__, msg=exception)
     print "%s: %s" % (exception_type.__name__, exception)
 
 def print_r(ind):
+    """pretty-print a dict as JSON"""
     return json.dumps(ind, indent=4, separators=(',', ': '))
 
 def tstatus(msgtype, **kwargs):
     """output json object with update data"""
-    if config['run']['tsukimi']:
+    if _config['run']['tsukimi']:
         xout = {'msgtype': msgtype}
         xout.update(kwargs)
         sys.stderr.write(json.dumps(xout))
@@ -195,6 +203,6 @@ def tstatus(msgtype, **kwargs):
 
 def configure_logging(xconfig):
     """store configuration for logging module"""
-    global config
-    config = xconfig
-    loglevel(config.core['loglevel'])
+    global _config
+    _config = xconfig
+    loglevel(_config.core['loglevel'])

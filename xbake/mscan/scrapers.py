@@ -14,13 +14,9 @@ https://ycnrg.org/
 
 """
 
-import sys
 import os
 import re
-import json
-import signal
 import time
-import subprocess
 from collections import defaultdict
 
 import requests
@@ -28,6 +24,7 @@ import xmltodict
 
 from xbake import __version__
 from xbake.common.logthis import *
+from xbake.mscan.util import *
 
 EPIMAP = defaultdict(lambda: None, {
                 'EpisodeName': "title",
@@ -77,7 +74,7 @@ def tvdb_get_id(sername, config):
         if isinstance(xser, list):
             logthis("Multiple results found", loglevel=LL.DEBUG)
             xsout = None
-            for sk, sv in enumerate(xser):
+            for sv in xser:
                 # Check against main SeriesName
                 if normalize(sv.get('SeriesName', '')) == snorm:
                     logthis("Choosing exact match against SeriesName", loglevel=LL.DEBUG)
@@ -130,8 +127,6 @@ def tvdb_process(indata, config):
     """
     TVDB: Process data and enumerate artwork assets
     """
-    imgbase = config.tvdb['imgbase']
-
     txc = {
             'tv': {}, 'xrefs': {}, 'synopsis': {}, 'xref': {},
             'artwork': {}, 'episodes': []
@@ -245,6 +240,7 @@ def mal(xsea, tdex, config):
     """
     MyAnimeList.net (MAL) Scraper
     """
+    # pylint: disable=unused-argument
     pass
 
 
@@ -260,7 +256,7 @@ def getxml(uribase, qget=None, qauth=None):
 
     # Perform request
     logthis("Performing HTTP request to:", suffix=uribase, loglevel=LL.DEBUG)
-    r = requests.get(uribase, params=qget, auth=qauth)
+    r = requests.get(uribase, params=qget, auth=qauth, headers=rqheaders)
 
     # Process response
     logthis("Got response status:", suffix=str(r.status_code)+' '+r.reason, loglevel=LL.DEBUG)
@@ -272,15 +268,6 @@ def getxml(uribase, qget=None, qauth=None):
         rstat['ok'] = True
 
     return rstat
-
-
-def normalize(xname):
-    """
-    Normalize input string for use as a tdex_id
-    """
-    nrgx = u'[\'`\-\?!%&\*@\(\)#:,\.\/\\;\+=\[\]\{\}\$\<\>]'
-    urgx = u'[ ★☆]'
-    return re.sub(urgx, '_', re.sub(nrgx, '', xname)).lower().strip()
 
 
 def date2time(dstr, fstr="%Y-%m-%d"):

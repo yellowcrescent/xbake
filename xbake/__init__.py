@@ -19,8 +19,8 @@ Refer to README.md for installation and usage instructions.
 
 from xbake.common.logthis import LL
 
-__version__ = "0.10.181"
-__date__ = "10 Nov 2016"
+__version__ = "0.10.182"
+__date__ = "24 Nov 2016"
 
 defaults = {
                 'run': {
@@ -47,9 +47,7 @@ defaults = {
                     'webp_q': 90
                 },
                 'mongo': {
-                    'host': "localhost",
-                    'port': 27017,
-                    'database': "ycplay"
+                    'uri': "mongodb://localhost:27017/ycplay"
                 },
                 'redis': {
                     'host': "localhost",
@@ -85,14 +83,14 @@ defaults = {
                 'tvdb': {
                     'mirror': "http://thetvdb.com",
                     'imgbase': "http://thetvdb.com/banners",
-                    'apikey': False
+                    'apikey': None
                 },
                 'mal': {
-                    'user': False,
-                    'password': False
+                    'user': None,
+                    'password': None
                 },
                 'ffmpeg': {
-                    'path': False
+                    'path': None
                 },
                 'srv': {
                     'pidfile': "xbake.pid",

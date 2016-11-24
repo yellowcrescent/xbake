@@ -5,3 +5,4 @@ dist
 xbake.conf
 fonts
 *.pid
+test

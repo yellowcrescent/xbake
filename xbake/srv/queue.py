@@ -17,8 +17,6 @@ https://ycnrg.org/
 import sys
 import os
 import re
-import signal
-import time
 import json
 import subprocess
 import pipes
@@ -27,7 +25,7 @@ from setproctitle import setproctitle
 
 from xbake.common.logthis import *
 from xbake.common import db
-from xbake.mscan.util import md5sum, checksum, rhash, dstat
+from xbake.mscan.util import md5sum, dstat
 from xbake.xcode import xcode
 
 # Queue handler callbacks
@@ -41,9 +39,13 @@ xprofiles = None
 rdx = None
 mdx = None
 dadpid = None
+config = None
 
-def start(qname="xcode"):
-    global rdx, mdx, dadpid, handlers, hmetrics, xprofiles
+def start(xconfig, qname="xcode"):
+    """
+    fork queue runner for queue @qname
+    """
+    global rdx, mdx, dadpid, handlers, hmetrics, xprofiles, config
 
     # Fork into its own process
     logthis("Forking...", loglevel=LL.DEBUG)
@@ -61,15 +63,15 @@ def start(qname="xcode"):
     # Otherwise, we are the child
     logthis("Forked queue runner. pid =", prefix=qname, suffix=os.getpid(), loglevel=LL.INFO)
     logthis("QRunner. ppid =", prefix=qname, suffix=dadpid, loglevel=LL.VERBOSE)
-    setproctitle("yc_xbake: queue runner - %s" % (qname))
+    setproctitle("xbake: queue runner - %s" % (qname))
 
-    conf = __main__.xsetup.config
+    config = xconfig
 
     # Connect to Redis
-    rdx = db.redis({'host': conf['redis']['host'], 'port': conf['redis']['port'], 'db': conf['redis']['db']}, prefix=conf['redis']['prefix'])
+    rdx = db.redis({'host': config.redis['host'], 'port': config.redis['port'], 'db': config.redis['db']}, prefix=config.redis['prefix'])
 
     # Connect to Mongo
-    mdx = db.mongo(conf['mongo'])
+    mdx = db.mongo(config.mongo)
 
     # Set queue callbacks
     handlers = {
@@ -91,6 +93,9 @@ def start(qname="xcode"):
     sys.exit(0)
 
 def qrunner(qname="xcode"):
+    """
+    Queue runner main loop
+    """
     global rdx, mdx, handlers
 
     qq = "queue_"+qname
@@ -106,6 +111,7 @@ def qrunner(qname="xcode"):
             critem = json.loads(crraw)
         except Exception as e:
             logthis("!! QRunner crash recovery: Bad JSON data from queue item. Job discarded. raw data:", prefix=qname, suffix=crraw, loglevel=LL.ERROR)
+            logexc(e, "Error loading JSON data")
             continue
         cr_jid = critem.get("id", "??")
         logthis("** Requeued abandoned job:", prefix=qname, suffix=cr_jid, loglevel=LL.WARNING)
@@ -156,12 +162,18 @@ def qrunner(qname="xcode"):
             return
 
 def cb_xfer(jdata):
-    global mdx, hmetrics
-    xfer_loc = __main__.xsetup.config['srv']['xfer_path'].rstrip('/')
+    """
+    Job processor for xfer queue (callback)
+    Determines host with lowest metric (if file is on multiple hosts), then calls
+    scp to copy the file to the new host
+    @jdata {jid, fid, opts: {infile, realpath, basefile, location, ...}}
+    """
+    global mdx, hmetrics, config
+    xfer_loc = config.srv['xfer_path'].rstrip('/')
 
     # get options from job request
-    jid  = jdata['id']
-    fid  = jdata['fid']
+    jid = jdata['id']
+    fid = jdata['fid']
     opts = jdata['opts']
 
     # retrieve from Mongo
@@ -187,14 +199,14 @@ def cb_xfer(jdata):
         return 0
 
     # determine location with lowest metric (if multiple locations present)
-    lbest = False
+    lbest = (None, None)
     for ttl in fvid['location'].keys():
         cmetric = hmetrics.get(ttl, 100)
-        if (not lbest) or (cmetric < lbest[1]):
+        if lbest[1] is None or cmetric < lbest[1]:
             lbest = (ttl, cmetric)
 
     bestloc = lbest[0]
-    logthis("xfer: Chose location %s, metric %d" % (lbest), loglevel=LL.VERBOSE)
+    logthis("xfer: Chose location %s, metric %d" % lbest, loglevel=LL.VERBOSE)
 
     # set download location
     dloc = fvid['location'][bestloc]
@@ -202,9 +214,9 @@ def cb_xfer(jdata):
 
     # connect using only the host portion of the FQDN
     # if srv.xfer_hostonly option is enabled
-    if __main__.xsetup.config['srv']['xfer_hostonly']:
+    if config.srv['xfer_hostonly']:
         try:
-            r_host = re.match("^([^\.]+)\.", xrem_host).group(1)
+            r_host = re.match(r'^([^\.]+)\.', xrem_host).group(1)
             logthis("xfer: Using hostname for ssh connection:", suffix=r_host, loglevel=LL.VERBOSE)
         except:
             logthis("xfer: Failed to parse host portion of fully-qualified hostname:", suffix=xrem_host, loglevel=LL.ERROR)
@@ -225,7 +237,7 @@ def cb_xfer(jdata):
     opts['realpath'] = l_real
 
     # run scp
-    xsrc_path  = "%s:%s" % (r_host, pipes.quote(r_path))
+    xsrc_path = "%s:%s" % (r_host, pipes.quote(r_path))
     xdest_path = pipes.quote(l_path + "/")
     logthis(">> Starting transfer: %s -> %s (%d bytes)" % (r_path, l_real, r_size), loglevel=LL.VERBOSE)
     update_status(fid, "downloading")
@@ -244,24 +256,30 @@ def cb_xfer(jdata):
 
 
 def cb_xcode(jdata):
-    global mdx, xprofiles
+    """
+    Job processor for xcode queue (callback)
+    Uses information from the request, as well as current settings and defaults to determine
+    transcoding parameters. Then xcode.run() is called to handle transcoding via FFmpeg
+    @jdata {jid, fid, opts: {profile, version, realpath, basefile, location, no_subs, vscap, fansub, ...}}
+    """
+    global mdx, xprofiles, config
 
     # get global options
-    outpath = os.path.expanduser(__main__.xsetup.config['srv']['xcode_outpath']).rstrip("/")
-    s_allow = int(__main__.xsetup.config['srv']['xcode_scale_allowance'])
+    outpath = os.path.expanduser(config.srv['xcode_outpath']).rstrip("/")
+    s_allow = int(config.srv['xcode_scale_allowance'])
 
     # get options from job request
-    jid  = jdata['id']
-    fid  = jdata['fid']
+    jid = jdata['id']
+    fid = jdata['fid']
     opts = jdata['opts']
 
     # set profile & version
-    xprof = opts.get('profile', __main__.xsetup.config['srv']['xcode_default_profile']).lower()
+    xprof = opts.get('profile', config.srv['xcode_default_profile']).lower()
     vname = opts.get('version', xprof)
     profdata = xprofiles.get(xprof, {})
 
     # build file paths
-    f_in  = opts['realpath']
+    f_in = opts['realpath']
     if vname:
         f_out = outpath + "/" + vname + "/" + opts['basefile'] + ".mp4"
     else:
@@ -270,7 +288,7 @@ def cb_xcode(jdata):
     # retrieve file entry from Mongo
     fvid = mdx.findOne('files', {"_id": fid})
     oneloc = fvid['location'].keys()[0]
-    expect_file = fvid['location'][oneloc]['fpath']['file']
+    expect_file = fvid['location'][oneloc]['fpath']['file']  #pylint: disable=unused-variable
 
     # Do some loggy stuff
     logthis("xcode: JobID %s / FileID %s / Opts %s" % (jid, fid, json.dumps(opts)), loglevel=LL.VERBOSE)
@@ -280,36 +298,39 @@ def cb_xcode(jdata):
     logthis("xcode: Profile:", suffix=xprof, loglevel=LL.VERBOSE)
     logthis("xcode: Profile data:", suffix=json.dumps(profdata), loglevel=LL.DEBUG)
 
+    # Create new XConfig instance
+    newconf = config._clone()
+
     ## Set encoding options
-    if __main__.xsetup.config['core']['loglevel'] > LL.VERBOSE:
-        __main__.xsetup.config['xcode']['show_ffmpeg'] = True
+    if newconf.core['loglevel'] > LL.VERBOSE:
+        newconf.xcode['show_ffmpeg'] = True
     else:
-        __main__.xsetup.config['xcode']['show_ffmpeg'] = __main__.xsetup.config['srv']['xcode_show_ffmpeg']
+        newconf.xcode['show_ffmpeg'] = newconf.srv['xcode_show_ffmpeg']
 
     # Set File, ID, and Version info
-    __main__.xsetup.config['run']['infile'] = f_in
-    __main__.xsetup.config['run']['outfile'] = f_out
-    __main__.xsetup.config['run']['id'] = fid
-    __main__.xsetup.config['vid']['location'] = opts['location']
-    __main__.xsetup.config['vid']['vername'] = vname
+    newconf.run['infile'] = f_in
+    newconf.run['outfile'] = f_out
+    newconf.run['id'] = fid
+    newconf.vid['location'] = opts['location']
+    newconf.vid['vername'] = vname
 
     # Audio options
-    __main__.xsetup.config['xcode']['acopy'] = 'auto'
-    __main__.xsetup.config['xcode']['downmix'] = 'auto'
-    __main__.xsetup.config['xcode']['abr'] = int(profdata.get('abr', 128))
+    newconf.xcode['acopy'] = 'auto'
+    newconf.xcode['downmix'] = 'auto'
+    newconf.xcode['abr'] = int(profdata.get('abr', 128))
 
     # Subtitle options
     if not opts.get('no_subs', False):
-        __main__.xsetup.config['run']['bake'] = True
-        __main__.xsetup.config['xcode']['subid'] = 'auto'
+        newconf.run['bake'] = True
+        newconf.xcode['subid'] = 'auto'
     else:
-        __main__.xsetup.config['run']['bake'] = False
+        newconf.run['bake'] = False
 
     # Screenshot options
     if opts.get('vscap', 0):
-        __main__.xsetup.config['run']['vscap'] = opts['vscap']
+        newconf.run['vscap'] = opts['vscap']
     elif int(opts.get('vscap', 0)) == -1:
-        __main__.xsetup.config['run']['vscap'] = False
+        newconf.run['vscap'] = False
     else:
         # If no vscap offset is set, then take the 3rd chapter offset and add 5 seconds
         # If no 3rd chapter, 440 seconds? go!
@@ -317,16 +338,16 @@ def cb_xcode(jdata):
             zoff = int(fvid['mediainfo']['menu'][2]['offset']) + 5
         except:
             zoff = 440
-        __main__.xsetup.config['run']['vscap'] = zoff
+        newconf.run['vscap'] = zoff
 
     # Metadata options
     if opts.get('fansub', False):
-        __main__.xsetup.config['run']['fansub'] = opts['fansub']
+        newconf.run['fansub'] = opts['fansub']
     else:
-        __main__.xsetup.config['run']['fansub'] = None
+        newconf.run['fansub'] = None
 
     ## Video options
-    __main__.xsetup.config['xcode']['crf'] = int(profdata.get('crf', __main__.xsetup.defaults['xcode']['crf']))
+    newconf.xcode['crf'] = int(profdata.get('crf', config.xcode['crf']))
 
     # Performing scaling to match profile, if necessary
     xscale = False
@@ -334,7 +355,7 @@ def cb_xcode(jdata):
         # Get source size and AR
         v_width = int(fvid['mediainfo']['video'][0].get('width', 0))
         v_height = int(fvid['mediainfo']['video'][0].get('height', 0))
-        v_ar, v_iar, v_dar = get_aspect(fvid['mediainfo']['video'][0])
+        v_ar, v_iar, v_dar = get_aspect(fvid['mediainfo']['video'][0])  #pylint: disable=unused-variable
 
         # calculate expected/target size
         x_height = int(profdata['height'])
@@ -355,19 +376,19 @@ def cb_xcode(jdata):
             s_width = x_width
         # ensure s_width is always even
         s_width += s_width % 2
-        __main__.xsetup.config['xcode']['scale'] = "%d:%d" % (s_width, x_height)
+        newconf.xcode['scale'] = "%d:%d" % (s_width, x_height)
     else:
-        __main__.xsetup.config['xcode']['scale'] = None
+        newconf.xcode['scale'] = None
 
     # print params for debugging
-    logthis("xcode: Set xsetup.xcode config:\n", suffix=print_r(__main__.xsetup.config['xcode']), loglevel=LL.DEBUG)
-    logthis("xcode: Set xsetup.run config:\n", suffix=print_r(__main__.xsetup.config['run']), loglevel=LL.DEBUG)
-    logthis("xcode: Set xsetup.vid config:\n", suffix=print_r(__main__.xsetup.config['vid']), loglevel=LL.DEBUG)
+    logthis("xcode: Set xsetup.xcode newconf:\n", suffix=str(newconf.xcode), loglevel=LL.DEBUG)
+    logthis("xcode: Set xsetup.run newconf:\n", suffix=str(newconf.run), loglevel=LL.DEBUG)
+    logthis("xcode: Set xsetup.vid newconf:\n", suffix=str(newconf.vid), loglevel=LL.DEBUG)
 
     # Transcode
     logthis("xcode: Handing off control to xbake.xcode module for transcoding.", loglevel=LL.VERBOSE)
     update_status(fid, "transcoding")
-    xcode.run(infile=f_in, outfile=f_out, vername=vname, id=fid)
+    xcode.run(newconf)
 
     # Check for presence of output file
     if not os.path.exists(f_out):
@@ -380,6 +401,10 @@ def cb_xcode(jdata):
         return 0
 
 def get_aspect(midata):
+    """
+    calculate aspect ratio from mediainfo data @midata
+    returns: tuple (fraction_string, float, rounded)
+    """
     smap = {1.78: "16:9", 1.5: "3:2", 1.33: "4:3", 1.25: "5:4"}
     # get aspect ratio reported in metadata
     iar = midata.get('display_aspect_ratio', midata.get('aspect', round(float(midata['width']) / float(midata['height']), 2)))
@@ -392,6 +417,10 @@ def get_aspect(midata):
     return (smap.get(dar, str(dar)), iar, dar)
 
 def scp(src, dest):
+    """
+    executes scp to perform a transfer
+    @src and @dest should contain host:path
+    """
     try:
         subprocess.check_output(['/usr/bin/scp', '-B', '-r', src, dest])
         return True
@@ -400,11 +429,18 @@ def scp(src, dest):
         return False
 
 def enqueue(qname, jid, fid, opts, silent=False):
+    """
+    create a new job in queue (@qname), with job ID (@jid), file ID (@fid), and options (@opts)
+    """
     global rdx
     rdx.lpush("queue_"+qname, json.dumps({'id': jid, 'fid': fid, 'opts': opts}))
     if not silent: logthis("Enqueued job# %s in queue:" % (jid), suffix=qname, loglevel=LL.VERBOSE)
 
 def master_alive():
+    """
+    check if master process is alive
+    returns True if alive, False otherwise
+    """
     global dadpid
     try:
         os.kill(dadpid, 0)
@@ -414,11 +450,18 @@ def master_alive():
         return True
 
 def update_status(fid, status, lerror=None):
+    """
+    update status of file (@fid) with @status
+    """
     global mdx
     if lerror: mdx.update_set('files', fid, {'status': status, 'last-error': lerror})
     else: mdx.update_set('files', fid, {'status': status})
 
 def check_file_xfer(freal, fsize):
+    """
+    determine if a file has been transferred
+    returns True if file exists and is correct size, False otherwise
+    """
     if os.path.exists(freal):
         truesize = dstat(freal)['size']
         if truesize == fsize:
@@ -430,6 +473,11 @@ def check_file_xfer(freal, fsize):
         return False
 
 def check_file_exists(fname, chksum=False):
+    """
+    determine if a file already exists at destination; optionally, if @chksum=True,
+    then the MD5 checksum will be checked against the record in the database to ensure they match
+    returns True if file exists, False otherwise
+    """
     if os.path.exists(fname) and os.path.isfile(fname):
         if chksum:
             if md5sum(fname) == chksum:
@@ -442,8 +490,14 @@ def check_file_exists(fname, chksum=False):
         return False
 
 def load_metrics():
-    # Load metrics from [hosts] section of RC file
-    mets = __main__.xsetup.config.get('hosts', {})
+    """
+    Load metrics from [hosts] section of RC file
+    """
+    global config
+    if 'hosts' in config:
+        mets = config.hosts
+    else:
+        mets = {}
     mets2 = {}
     for tm in mets:
         try:
@@ -452,12 +506,17 @@ def load_metrics():
             logthis("Bad hostline for", suffix=tm, loglevel=LL.ERROR)
 
     logthis("Host metric list:\n", suffix=print_r(mets2), loglevel=LL.DEBUG)
-
     return mets2
 
 def load_profiles():
-    # Load encoding profiles from [profiles] section of RC file
-    profs = __main__.xsetup.config.get('profiles', {})
+    """
+    Load encoding profiles from [profiles] section of RC file
+    """
+    global config
+    if 'profiles' in config:
+        profs = config.profiles
+    else:
+        profs = {}
     oplist = {}
     for tp in profs:
         xlist = {}
@@ -471,5 +530,4 @@ def load_profiles():
             logthis("Error:", suffix=e, loglevel=LL.ERROR)
 
     logthis("Parsed xcode profiles:\n", suffix=print_r(oplist), loglevel=LL.DEBUG)
-
     return oplist

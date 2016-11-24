@@ -17,11 +17,10 @@ https://ycnrg.org/
 import sys
 import os
 import re
-import signal
 import time
 
 from setproctitle import setproctitle
-from flask import Flask, json, jsonify, make_response, request
+from flask import Flask, json, make_response, request
 
 from xbake import __version__, __date__
 from xbake.common.logthis import *
@@ -35,19 +34,19 @@ config = None
 # def start(bind_ip="0.0.0.0",bind_port=7037,fdebug=False):
 def start(xconfig):
     """Start XBake Daemon"""
-    global config
+    global config, xsrv
     config = xconfig
 
     # first, fork
     if not config.srv['nofork']: dfork()
 
     # set process title
-    setproctitle("yc_xbake: master process (%s:%d)" % (config.srv['iface'], config.srv['port']))
+    setproctitle("xbake: master process (%s:%d)" % (config.srv['iface'], config.srv['port']))
     pidfile_set()
 
     # spawn queue runners
-    queue.start('xfer')
-    queue.start('xcode')
+    queue.start(xconfig, 'xfer')
+    queue.start(xconfig, 'xcode')
 
     # create flask object, and map API routes
     xsrv = Flask('xbake')
@@ -97,6 +96,7 @@ def dfork():
         os._exit(0)
 
 def dresponse(objx, rcode=200):
+    """build standarized JSON response"""
     rx = make_response(pjson(objx), rcode)
     rx.headers['Content-Type'] = "application/json; charset=utf-8"
     rx.headers['Server'] = "XBake/"+__version__
@@ -104,13 +104,17 @@ def dresponse(objx, rcode=200):
     return rx
 
 def precheck(rheaders=False, require_ctype=True):
+    """
+    Perform authorization and content-type checks before
+    passing along a request to the destination route
+    """
     # Check for proper Content-Type
     if require_ctype:
         try:
             ctype = request.headers['Content-Type']
         except KeyError:
             ctype = None
-        if not re.match('^(application\/json|text\/x-json)', ctype, re.I):
+        if not re.match(r'^(application\/json|text\/x-json)', ctype, re.I):
             logthis("Content-Type mismatch. Not acceptable:", suffix=ctype, loglevel=LL.WARNING)
             if rheaders: return ({'status': "error", 'error': "json_required", 'message': "Content-Type must be application/json"}, "417 Content Mismatch")
             else: return False
@@ -136,6 +140,11 @@ def precheck(rheaders=False, require_ctype=True):
         else: return False
 
 def route_root():
+    """
+    / [GET, POST]
+    Return version information
+    Does not require authentication
+    """
     rinfo = {
                 'app': "XBake",
                 'description': "Media scanner, transcoder, and generally-handy subtitle baker thing",
@@ -148,9 +157,19 @@ def route_root():
     return dresponse(rinfo)
 
 def route_auth():
+    """
+    /api/auth [GET, POST]
+    Check authentication credentials
+    """
     return dresponse(*precheck(rheaders=True))
 
 def route_mscan_add():
+    """
+    /mscan/add [PUT, POST]
+    Add new file(s) to the database from a recent scan
+    This receives the full scan results from a recent run of `xbake --mscan`
+    as JSON data
+    """
     logthis(">> Received mscan_add request", loglevel=LL.VERBOSE)
 
     if precheck():
@@ -166,17 +185,25 @@ def route_mscan_add():
     return resp
 
 def route_mscan_last():
-    return dresponse(rinfo)
+    """
+    /mscan/getlast [GET]
+    Retrieve the most recent scan results from the database
+    """
+    return dresponse(None, '501 Not Implemented')
 
 def pjson(oin):
+    """prettify json"""
     return json.dumps(oin, indent=4, separators=(',', ': '))
 
 def pidfile_set():
+    """
+    create/update pidfile to config.srv.pidfile
+    """
     pfname = config.srv['pidfile']
     try:
         fo = open(pfname, "w")
         fo.write("%d\n" % os.getpid())
         fo.close()
-    except:
-        logthis("Failed to write data to PID file:", suffix=pfname, loglevel=LL.ERROR)
-        failwith(PROCFAIL, "Ensure write permission at the PID file location.")
+    except Exception as e:
+        logexc(e, "Failed to write data to PID file (%s)" % (pfname))
+        failwith(ER.PROCFAIL, "Ensure write permission at the PID file location.")

@@ -18,17 +18,12 @@ from __future__ import print_function
 
 import sys
 import os
-import re
-import json
-import signal
 import optparse
-import operator
-import time
 
 from xbake import __version__, __date__, defaults
 from xbake.common.logthis import *
 from xbake.common import rcfile
-from xbake.xcode import ffmpeg, xcode
+from xbake.xcode import ffmpeg, xcode, ssonly
 from xbake.mscan import mscan
 from xbake.srv import daemon
 
@@ -192,7 +187,7 @@ def _main():
     if config.run['mode'] == "xcode":
         rcode = xcode.run(config)
     elif config.run['mode'] == "ssonly":
-        rcode = xcode.ssonly(config)
+        rcode = ssonly.run(config)
     elif config.run['mode'] == "scan":
         rcode = mscan.run(config)
     elif config.run['mode'] == "srv":

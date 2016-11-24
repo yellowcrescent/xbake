@@ -14,17 +14,10 @@ https://ycnrg.org/
 
 """
 
-import sys
 import os
 import re
-import json
-import signal
-import time
-import subprocess
-import enzyme
 
 from xbake.common.logthis import *
-from xbake.xcode import ffmpeg
 from xbake.mscan import util
 from xbake.common import db
 from xbake.xcode.xcode import sscapture
@@ -55,7 +48,7 @@ def run(xconfig):
         vinfo_id = config.run['id']
     elif config.vid['autoid']:
         vinfo_id = util.md5sum(config.run['infile'])
-        logthis("MD5 Checksum:", suffix=vinfo.id, loglevel=LL.INFO)
+        logthis("MD5 Checksum:", suffix=vinfo_id, loglevel=LL.INFO)
     else:
         vinfo_id = None
 
@@ -66,10 +59,10 @@ def run(xconfig):
     if config.run['vscap']:
         vc_offset = config.run['vscap']
     else:
-        vc_offset = get_magic_offset(vinfo_id)
         logthis("No frame capture offset specified. Determining one automagically.", loglevel=LL.INFO)
+        vc_offset = get_magic_offset(vinfo_id)
 
-    vsdata = sscapture(config.run['infile'], config.run['vscap'])
+    vsdata = sscapture(config.run['infile'], vc_offset)
 
     # Update Mongo entry
     zdata = monjer.findOne('videos', {'_id': vinfo_id})
@@ -84,14 +77,15 @@ def run(xconfig):
     return 0
 
 
-def get_magic_offset(id):
+def get_magic_offset(vid=None):
     """
     if no vscap offset was set, let's choose something somewhat sensical
     """
-    if vinfo_id:
+    base_offset = None
+    if vid is not None:
         # get chapter list
         try:
-            vdata = monjer.findOne("files", {'_id': id})
+            vdata = monjer.findOne("files", {'_id': vid})
             clist = vdata['mediainfo']['menu']
         except Exception as e:
             logthis("Failed to retrieve menu list for input file:", suffix=e, loglevel=LL.VERBOSE)

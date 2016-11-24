@@ -14,22 +14,16 @@ https://ycnrg.org/
 
 """
 
-import sys
-import os
-import re
-import json
-import signal
-import time
-import subprocess
-
 from xbake.common.logthis import *
+from xbake.mscan.util import *
 from xbake.mscan import scrapers
 
 
 class MCMP:
+    """mkey enum"""
     NOMATCH = 0
     RENAMED = 1
-    NOCHG   = 2
+    NOCHG = 2
 
 rcdata = {'files': {}, 'series': {}}
 tdex = {}
@@ -52,7 +46,7 @@ def series_scrape(xconfig):
     """
     Scrape info for all series in tdex
     """
-    cscraper = xconfig.scan['scraper']
+    cscraper = xconfig.scan['scraper'].lower()
     show_count = len(tdex)
 
     if show_count < 1:
@@ -72,16 +66,18 @@ def series_scrape(xconfig):
         # Execute chosen scraper
         tstatus('series_scrape', scraper=cscraper, tdex_id=xsea, tdex_data=xsdat)
         if cscraper == 'tvdb':
-            scrapers.tvdb(xsea, tdex)
+            scrapers.tvdb(xsea, tdex, xconfig)
         elif cscraper == 'mal':
-            scrapers.mal(xsea, tdex)
+            scrapers.mal(xsea, tdex, xconfig)
+        elif cscraper in ['none', 'disable', 'disabled', 'off', 'no', '0', '', None, False, 0]:
+            logthis("Scraper disabled; scan.scraper =", suffix=str(cscraper), loglevel=LL.VERBOSE)
         else:
             failwith(ER.NOTIMPL, "Scraper [%s] not implemented. Unable to continue. Aborting." % (cscraper))
 
     return show_count
 
 
-def series_add(sname, ovrx=False):
+def series_add(sname, ovrx=None):
     """
     Add series to tdex
     """
@@ -93,20 +89,13 @@ def series_add(sname, ovrx=False):
     else:
         logthis("New series found:", suffix=snamex, loglevel=LL.DEBUG)
         tdex[snamex] = {'title': sname, 'count': 1}
-        if ovrx:
-            if ovrx.has_key('tvdb_id'): tdex[snamex]['tvdb_id'] = ovrx['tvdb_id']
-            if ovrx.has_key('mal_id'): tdex[snamex]['mal_id'] = ovrx['mal_id']
+        if ovrx is not None:
+            if 'tvdb_id' in ovrx: tdex[snamex]['tvdb_id'] = ovrx['tvdb_id']
+            if 'mal_id' in ovrx: tdex[snamex]['mal_id'] = ovrx['mal_id']
 
     return snamex
 
 
-def normalize(xname):
-    """
-    Normalize input string for use as a tdex_id
-    """
-    nrgx = u'[`\-%&\*@\(\)#:,\/\\;\+=\[\]\{\}\$\<\>]'
-    urgx = u'[ ★☆\.\?\!\']'
-    return re.sub(urgx, '_', re.sub(nrgx, '', xname)).lower().strip()
-
 def get_tdex():
+    """return tdex object"""
     return tdex

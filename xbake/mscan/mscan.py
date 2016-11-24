@@ -18,11 +18,9 @@ import sys
 import os
 import re
 import json
-import signal
 import time
 import socket
-import subprocess
-from copy import copy, deepcopy
+import codecs
 from urlparse import urlparse
 
 import distance
@@ -30,45 +28,38 @@ import arrow
 
 from xbake import __version__, __date__
 from xbake.common.logthis import *
-from xbake.xcode import ffmpeg, xcode
 from xbake.mscan import util, out
-from xbake.common import db, fsutil
+from xbake.common import fsutil
 from xbake.mscan import mdb
 from xbake.mscan.mdb import MCMP
 
 class DSTS:
+    """mkey string enum"""
     NEW = 'new'
     UNCHANGED = 'unchanged'
     RENAMED = 'renamed'
 
-class CONM:
-    FILE    = 1
-    MLOCAL  = 2
-    MREMOTE = 3
-    APIREM  = 4
-
 # File match regexes
 fregex = [
-            "^(\[(?P<fansub>[^\]]+)\])[\s._]*(?P<series>.+?)(?:[\s._]-[\s._]|[\._])(?:(?P<special>(NCOP|NCED|OP|ED|PV|OVA|ONA|Special|Insert|Preview|Lite|Short)\s*-?\s*[0-9]{0,2})|(?:[eEpP]{2}[\s._]*)?(?P<epnum>[0-9]{1,3}))(?P<version>[vep]{1,2}[0-9]{1,2}([-,][0-9]{1,2})?)?",
-            "^(\[(?P<fansub>[^\]]+)\])?[\s._]*(?P<series>.+?)(?P<season>[0-9]{1,2})x(?P<epnum>[0-9]{1,2})(.*)$",
-            "^(\[(?P<fansub>[^\]]+)\])?[\s._]*(?P<series>.+)[\.\-_ ]SE?(?P<season>[0-9]{1,2})EP?(?P<epnum>[0-9]{1,2})(?:[\.\-_ ](?P<eptitle>.+?))?[\.\-_\[\( ]+(?:([0-9]{3,4}p|web|aac|bd|tv|hd|x?264)+)",
-            "^(\[(?P<fansub>[^\]]+)\])?[\s._]*(?P<series>.+)[\._](?P<epnum>[0-9]{1,4})[\._](.*)$",
-            "^(?P<series>.+?)[\-_ ](?P<epnum>[0-9]{2})[\-_ ](.*)$",
-            "^(\[(?P<fansub>[^\]]+)\])?[\s._]*(?P<series>.+)[\._ ]-[\._ ][sS](?P<season>[0-9]{1,2}) ?[eE](?P<epnum>[0-9]{1,2})(.*)$",
-            "^(?P<series>.+)[sS](?P<season>[0-9]{1,2}) ?[eE](?P<epnum>[0-9]{1,2})(.*)$",
-            "^(?P<series>.+?) (?P<season>[0-9]{1,2}) (?P<epnum>[0-9]{1,2}) (.*)$",
-            "^(?P<series>.+) - (?P<epnum>[0-9]{1,2})(.*)$",
-            "^(?P<series>.+?)(?P<epnum>[0-9]{1,4})\.(.+)$",
-            "^(?P<series>.+?)(?P<epnum>[0-9]{2,3})(.+)$",
-            "^(?P<epnum>[0-9]{2,4})(.+)$"
+            r"^(\[(?P<fansub>[^\]]+)\])[\s._]*(?P<series>.+?)(?:[\s._]-[\s._]|[\._])(?:(?P<special>(NCOP|NCED|OP|ED|PV|OVA|ONA|Special|Insert|Preview|Lite|Short)\s*-?\s*[0-9]{0,2})|(?:[eEpP]{2}[\s._]*)?(?P<epnum>[0-9]{1,3}))(?P<version>[vep]{1,2}[0-9]{1,2}([-,][0-9]{1,2})?)?",
+            r"^(\[(?P<fansub>[^\]]+)\])?[\s._]*(?P<series>.+?)(?P<season>[0-9]{1,2})x(?P<epnum>[0-9]{1,2})(.*)$",
+            r"^(\[(?P<fansub>[^\]]+)\])?[\s._]*(?P<series>.+)[\.\-_ ]SE?(?P<season>[0-9]{1,2})EP?(?P<epnum>[0-9]{1,2})(?:[\.\-_ ](?P<eptitle>.+?))?[\.\-_\[\( ]+(?:([0-9]{3,4}p|web|aac|bd|tv|hd|x?264)+)",
+            r"^(\[(?P<fansub>[^\]]+)\])?[\s._]*(?P<series>.+)[\._](?P<epnum>[0-9]{1,4})[\._](.*)$",
+            r"^(?P<series>.+?)[\-_ ](?P<epnum>[0-9]{2})[\-_ ](.*)$",
+            r"^(\[(?P<fansub>[^\]]+)\])?[\s._]*(?P<series>.+)[\._ ]-[\._ ][sS](?P<season>[0-9]{1,2}) ?[eE](?P<epnum>[0-9]{1,2})(.*)$",
+            r"^(?P<series>.+)[sS](?P<season>[0-9]{1,2}) ?[eE](?P<epnum>[0-9]{1,2})(.*)$",
+            r"^(?P<series>.+?) (?P<season>[0-9]{1,2}) (?P<epnum>[0-9]{1,2}) (.*)$",
+            r"^(?P<series>.+) - (?P<epnum>[0-9]{1,2})(.*)$",
+            r"^(?P<series>.+?)(?P<epnum>[0-9]{1,4})\.(.+)$",
+            r"^(?P<series>.+?)(?P<epnum>[0-9]{2,3})(.+)$",
+            r"^(?P<epnum>[0-9]{2,4})(.+)$"
          ]
 
 # File extension filter
-fext = re.compile('\.(avi|mkv|mpg|mpeg|wmv|vp8|ogm|mp4|mpv)', re.I)
+fext = re.compile(r'\.(avi|mkv|mpg|mpeg|wmv|vp8|ogm|mp4|mpv)', re.I)
 
 config = None
 
-# def run(infile,outfile=False,conmode=CONM.FILE,dreflinks=True,**kwargs):
 def run(xconfig):
     """
     Implements --scan mode
@@ -95,7 +86,7 @@ def run(xconfig):
 
     # Scrape for series information
     if new_files > 0:
-        mdb.series_scrape()
+        mdb.series_scrape(config)
 
     # Build host data
     hdata = {
@@ -129,17 +120,17 @@ def run(xconfig):
     if ofp.scheme == 'mongodb':
         # Write to Mongo
         logthis(">> Output driver: Mongo", loglevel=LL.VERBOSE)
-        cmon = config.mongo
-        if ofp.hostname: cmon['hostname'] = ofp.hostname
-        if ofp.port: cmon['port'] = ofp.port
-        if ofp.path:
-            cmon['database'] = ofp.path.split('/')[1]
-            if not cmon['database']: cmon['database'] = config.mongo['database']
+        if ofp.hostname is None:
+            cmon = config.mongo
+            logthis("Using existing MongoDB configuration; URI:", suffix=cmon['uri'], loglevel=LL.DEBUG)
+        else:
+            cmon = {'uri': config.run['outfile']}
+            logthis("Using new MongoDB URI:", suffix=cmon['uri'], loglevel=LL.DEBUG)
         ostatus = out.to_mongo(odata, cmon)
     elif ofp.scheme == 'http' or ofp.scheme == 'https':
         # Send via HTTP(S) to a listening XBake daemon, or other web service
         logthis(">> Output driver: HTTP/HTTPS", loglevel=LL.VERBOSE)
-        ostatus = out.to_server(odata, config.run['outfile'])
+        ostatus = out.to_server(odata, config.run['outfile'], config)
     else:
         # Write to file or stdout
         logthis(">> Output driver: File", loglevel=LL.VERBOSE)
@@ -205,10 +196,10 @@ def scan_dir(dpath, dreflinks=True, mforce=False, nochecksum=False, savechecksum
     ddex = {}
     new_files = 0
 
-    for tdir, dlist, flist in os.walk(unicode(dpath), followlinks=dreflinks):
+    for tdir, dlist, flist in os.walk(unicode(dpath), followlinks=dreflinks):  # pylint: disable=unused-variable
         # get base & parent dir names
-        tdir_base = os.path.split(tdir)[1]
-        tdir_parent = os.path.split(os.path.split(tdir)[0])[1]
+        tdir_base = os.path.split(tdir)[1]  # pylint: disable=unused-variable
+        tdir_parent = os.path.split(os.path.split(tdir)[0])[1]  # pylint: disable=unused-variable
         ovrx = {}
 
         # Get xattribs
@@ -227,7 +218,7 @@ def scan_dir(dpath, dreflinks=True, mforce=False, nochecksum=False, savechecksum
         # enum files in this directory
         for xv in flist:
             xvreal = os.path.realpath(unicode(tdir + '/' + xv))
-            xvbase, xvext = os.path.splitext(xv)
+            xvbase, xvext = os.path.splitext(xv)  # pylint: disable=unused-variable
 
             # Skip .xbake file
             if unicode(xv) == unicode('.xbake'): continue
@@ -252,7 +243,7 @@ def scan_dir(dpath, dreflinks=True, mforce=False, nochecksum=False, savechecksum
             ovrx_sub = clean_overrides(ovrx)
 
             # Get file properties
-            dasc = scanfile(xvreal, ovrx_sub, mforce, nochecksum)
+            dasc = scanfile(xvreal, ovrx_sub, mforce, nochecksum, savechecksum)
             if dasc:
                 ddex[xv] = dasc
                 new_files += 1
@@ -316,7 +307,6 @@ def scanfile(rfile, ovrx={}, mforce=False, nochecksum=False, savechecksum=True):
     # Stat, Extended Attribs, Ownership
     dasc['stat'] = util.dstat(xvreal)
     dasc['owner'] = {'user': util.getuser(dasc['stat']['uid']), 'group': util.getgroup(dasc['stat']['gid'])}
-    # TODO: get xattribs
 
     # Modification key (MD5 of inode number + mtime + filesize)
     mkey_id = util.getmkey(dasc['stat'])
@@ -396,7 +386,7 @@ def parse_episode_filename(dasc, ovrx={}, single=False, longep=False):
                     logthis("Using series name extracted from filename", loglevel=LL.DEBUG)
             else:
                 # Check base directory name; if it has the season number or season name
-                sspc = re.match('(season|s)\s*(?P<season>[0-9]{1,2})', dasc['dpath']['base'], re.I)
+                sspc = re.match(r'(season|s)\s*(?P<season>[0-9]{1,2})', dasc['dpath']['base'], re.I)
                 if sspc:
                     # Grab series name from the parent directory; tuck the season number away for later
                     sspc = sspc.groupdict()
@@ -426,7 +416,7 @@ def parse_episode_filename(dasc, ovrx={}, single=False, longep=False):
                     # For numbers over 100, assume SSEE encoding
                     # (ex: 103 = Season 1, Episode 3)
                     epnum = int(mm['epnum'][-2:])
-                    snum  = int(mm['epnum'][:(len(mm['epnum']) -2)])
+                    snum = int(mm['epnum'][:(len(mm['epnum']) -2)])
 
             # Get special episode type
             special = mm.get('special', "")
@@ -537,24 +527,21 @@ def parse_overrides(xpath):
     and season number
     """
     xfile = os.path.realpath(xpath + "/" + '.xbake')
-
+    xrides = {}
     if os.path.exists(xfile):
         logthis("Overrides persent for this directory. Parsing file:", suffix=xfile, loglevel=LL.VERBOSE)
-        xrff = open(xfile)
         try:
-            xrides = json.loads(xrff.read())
-            logthis("Parsed overrides successfully.", loglevel=LL.DEBUG)
-        except JSONDecodeError as e:
-            logthis("Failed to parse JSON from overrides file:", suffix=xfile, loglevel=LL.ERROR)
-            logthis("Parse error:", suffix=e, loglevel=LL.ERROR)
-            xrides = {}
-        except Exception as e:
-            logthis("Failed to parse JSON from overrides file:", suffix=xfile, loglevel=LL.ERROR)
-            logthis("Other error:", suffix=e, loglevel=LL.ERROR)
-            xrides = {}
+            with codecs.open(xfile, 'r', 'utf-8') as f:
+                xrides = json.load(f)
+            logthis("Parsed overrides successfully:\n", suffix=print_r(xrides), loglevel=LL.DEBUG)
+        except IOError as e:
+            logexc(e, "Failed to read overrides file")
+        except UnicodeDecodeError as e:
+            logexc(e, "Failed to decode overrides file (%s)" % (xfile))
+        except ValueError as e:
+            logexc(e, "Failed to parse JSON from overrides file")
     else:
         logthis("No overrides for this directory. File does not exist:", suffix=xfile, loglevel=LL.DEBUG)
-        xrides = {}
     return xrides
 
 
@@ -564,8 +551,8 @@ def check_overrides(ovx, cfile):
     Return: True if match (file should be skipped/ignored)
             False if no match (file should be processed as usual)
     """
-    if ovx:
-        if ovx.has_key('ignore') and isinstance(ovx['ignore'], list):
+    if isinstance(ovx, list):
+        if 'ignore' in ovx:
             for ii in ovx['ignore']:
                 if unicode(ii) == unicode(cfile):
                     return True
@@ -576,9 +563,9 @@ def clean_overrides(ovrx):
     """
     Remove unnecessary keys from overrides structure; return new cleaned copy
     """
-    ovrx_sub = copy(ovrx)
-    if ovrx_sub.has_key('ignore'): del(ovrx_sub['ignore'])
-    if ovrx_sub.has_key('md5'): del(ovrx_sub['md5'])
-    if ovrx_sub.has_key('crc32'): del(ovrx_sub['crc32'])
-    if ovrx_sub.has_key('ed2k'): del(ovrx_sub['ed2k'])
+    ovrx_sub = util.deepcopy(ovrx)
+    if 'ignore' in ovrx_sub: del(ovrx_sub['ignore'])
+    if 'md5' in ovrx_sub: del(ovrx_sub['md5'])
+    if 'crc32' in ovrx_sub: del(ovrx_sub['crc32'])
+    if 'ed2k' in ovrx_sub: del(ovrx_sub['ed2k'])
     return ovrx_sub

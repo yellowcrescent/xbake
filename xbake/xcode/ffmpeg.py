@@ -14,12 +14,8 @@ https://ycnrg.org/
 
 """
 
-import sys
 import os
 import re
-import json
-import signal
-import time
 import subprocess
 import shutil
 
@@ -27,11 +23,12 @@ from xbake.common.logthis import *
 
 
 class bpath:
+    """container class for external tool paths"""
     ffpath = None
     mepath = None
     impath = None
     wppath = None
-    rhash  = None
+    rhash = None
 
 def locate(prog, isFatal=True):
     """
@@ -56,15 +53,15 @@ def locateAll(xconfig):
     Locate required binaries (ffmpeg, mkvextract, etc.)
     """
     bpath.ffpath = locate('ffmpeg')
-    # check if ffmpeg path auto-detection is set to auto (ffmpeg.path = False)
+    # check if ffmpeg path auto-detection is set to auto (ffmpeg.path = None)
     # if so, set the path in the ffmpeg option block
-    if xconfig.ffmpeg['path'] == False:
+    if xconfig.ffmpeg['path'] is None:
         xconfig.ffmpeg['path'] = bpath.ffpath
 
     bpath.mepath = locate('mkvextract')
     bpath.impath = locate('convert')
     bpath.wppath = locate('cwebp')
-    bpath.rhash  = locate('rhash')
+    bpath.rhash = locate('rhash')
 
 def version():
     """
@@ -72,21 +69,24 @@ def version():
     """
     verdata = subprocess.check_output([bpath.ffpath, '-version'])
     vdx = {
-            'version': vmatch('^ffmpeg version ([^ ]+).*', verdata),
-            'date': vmatch('.*^built on (.+) with.*$', verdata),
-            'config': vmatch('.*^configuration: (.+?)$', verdata),
-            'libavutil': vmatch('.*^libavutil\s*(.+?) \/.*$', verdata),
-            'libavcodec': vmatch('.*^libavcodec\s*(.+?) \/.*$', verdata),
-            'libavformat': vmatch('.*^libavformat\s*(.+?) \/.*$', verdata),
-            'libavdevice': vmatch('.*^libavdevice\s*(.+?) \/.*$', verdata),
-            'libavfilter': vmatch('.*^libavfilter\s*(.+?) \/.*$', verdata),
-            'libswscale': vmatch('.*^libswscale\s*(.+?) \/.*$', verdata),
-            'libswresample': vmatch('.*^libswresample\s*(.+?) \/.*$', verdata),
-            'libpostproc': vmatch('.*^libpostproc\s*(.+?) \/.*$', verdata)
+            'version': vmatch(r'^ffmpeg version ([^ ]+).*', verdata),
+            'date': vmatch(r'.*^built on (.+) with.*$', verdata),
+            'config': vmatch(r'.*^configuration: (.+?)$', verdata),
+            'libavutil': vmatch(r'.*^libavutil\s*(.+?) \/.*$', verdata),
+            'libavcodec': vmatch(r'.*^libavcodec\s*(.+?) \/.*$', verdata),
+            'libavformat': vmatch(r'.*^libavformat\s*(.+?) \/.*$', verdata),
+            'libavdevice': vmatch(r'.*^libavdevice\s*(.+?) \/.*$', verdata),
+            'libavfilter': vmatch(r'.*^libavfilter\s*(.+?) \/.*$', verdata),
+            'libswscale': vmatch(r'.*^libswscale\s*(.+?) \/.*$', verdata),
+            'libswresample': vmatch(r'.*^libswresample\s*(.+?) \/.*$', verdata),
+            'libpostproc': vmatch(r'.*^libpostproc\s*(.+?) \/.*$', verdata)
         }
     return vdx
 
 def vmatch(regex, instr, wstrip=False):
+    """
+    safely match and extract ffmpeg version infos
+    """
     rrx = re.match(regex, instr, re.I |re.S |re.M)
     if rrx:
         if wstrip:
@@ -98,7 +98,7 @@ def vmatch(regex, instr, wstrip=False):
 
 def run(optlist, supout=False):
     """
-    Run ffmpeg; Input a list of options; if `supout` is True, then suppress stderr
+    Run ffmpeg; Input a list of options; if @supout is True, then suppress stderr
     """
     logthis("Running ffmpeg with options:", suffix=optlist, loglevel=LL.DEBUG)
     try:
@@ -122,7 +122,7 @@ def dumpFonts(vfile, moveto=None):
     prelist = os.listdir(".")
     try:
         subprocess.check_output([bpath.ffpath, '-y', '-dump_attachment:t', '', '-i', vfile], stderr=subprocess.STDOUT)
-    except subprocess.CalledProcessError as e:
+    except subprocess.CalledProcessError:
         logthis("FFmpeg returned non-zero, but dump_attachment is buggy, so it's OK.", loglevel=LL.VERBOSE)
 
     # get fonts that were dumped
@@ -137,7 +137,6 @@ def dumpFonts(vfile, moveto=None):
     # move fonts to another directory, if enabled
     if moveto:
         moveto = os.path.expanduser(moveto).rstrip('/')
-        curpath = os.path.realpath('.')
         for i in fontlist:
             shutil.move(os.path.realpath(i), os.path.realpath(moveto + '/' + i))
         logthis("Moved fonts to new location:", suffix=os.path.realpath(moveto), loglevel=LL.VERBOSE)
@@ -147,13 +146,13 @@ def dumpFonts(vfile, moveto=None):
 
 def dumpSub(vfile, trackid, outfile):
     """
-    Use mkvextract to dump subtitle track
+    Use mkvextract to dump subtitle track @trackid from @vfile to @outfile
     """
-
+    # run mkvextract to dump subtitle track
     try:
         subprocess.check_output([bpath.mepath, 'tracks', vfile, "%d:%s" % (trackid, outfile)])
     except subprocess.CalledProcessError as e:
-        logthis("mkvextract failed:", suffix=e, loglevel=LL.ERROR)
+        logexc(e, "mkvextract failed")
         failwith(ER.PROCFAIL, "Sub extraction failed. Unable to continue. Aborting")
 
     # check for output file
@@ -161,7 +160,7 @@ def dumpSub(vfile, trackid, outfile):
         logthis("Expected output sub file, but not found:", suffix=outfile, loglevel=LL.ERROR)
         failwith(ER.PROCFAIL, "Sub extraction failed. Unable to continue. Aborting")
 
-    logthis("Extracted subtitle file successfully:", suffix=outfile, loglevel=LL.VERBOSE)
+    logthis("Extracted subtitle track successfully:", suffix=outfile, loglevel=LL.VERBOSE)
 
 def vscap(vfile, offset, outfile):
     """
@@ -169,8 +168,10 @@ def vscap(vfile, offset, outfile):
     """
     try:
         subprocess.check_output([bpath.ffpath, '-y', '-ss', str(offset), '-i', vfile, '-t', '1', '-r', '1', outfile], stderr=subprocess.STDOUT)
+        return True
     except subprocess.CalledProcessError as e:
-        logthis("FFmpeg returned non-zero. Frame capture failed.", loglevel=LL.WARNING)
+        logexc(e, "FFmpeg returned non-zero. Frame capture failed")
+        return False
 
 def im_scale(ifile, ofile, h):
     """
@@ -178,8 +179,10 @@ def im_scale(ifile, ofile, h):
     """
     try:
         subprocess.check_output([bpath.impath, ifile, '-resize', 'x%s' % h, ofile], stderr=subprocess.STDOUT)
+        return True
     except subprocess.CalledProcessError as e:
-        logthis("ImageMagick convert failed:", suffix=e, loglevel=LL.ERROR)
+        logexc(e, "ImageMagick convert failed")
+        return False
 
 def webp_convert(ifile, ofile, m=6, q=90):
     """
@@ -188,4 +191,4 @@ def webp_convert(ifile, ofile, m=6, q=90):
     try:
         subprocess.check_output([bpath.wppath, '-m', str(m), '-q', str(q), ifile, '-o', ofile], stderr=subprocess.STDOUT)
     except subprocess.CalledProcessError as e:
-        logthis("CWebP failed:", suffix=e, loglevel=LL.ERROR)
+        logexc(e, "cwebp conversion failed")

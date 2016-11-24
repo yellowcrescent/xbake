@@ -14,21 +14,14 @@ https://ycnrg.org/
 
 """
 
-import sys
-import os
-import re
 import json
-import signal
 import time
-import socket
 from datetime import datetime
 
 import requests
 
 from xbake import __version__, __date__
 from xbake.common.logthis import *
-from xbake.xcode import ffmpeg
-from xbake.mscan import util
 from xbake.common import db
 
 
@@ -50,7 +43,7 @@ def to_mongo(indata, moncon):
         thisx = {}
 
         # if ctitle not set, skip this series
-        # XXX-TODO: Possibly change this behaviour in the future
+        # Possibly change this behaviour in the future
         if not sdata.get('ctitle', False):
             continue
 
@@ -104,7 +97,7 @@ def to_mongo(indata, moncon):
 
     # Series Data
     logthis("Inserting series data into Mongo...", loglevel=LL.VERBOSE)
-    for tk, tss in enumerate(slist):
+    for tss in slist:
         # Process each series
         tssid = tss.get('_id')
         logthis("** Series:", prefix=tssid, suffix=tss.get("title", tssid), loglevel=LL.DEBUG)
@@ -144,7 +137,7 @@ def to_mongo(indata, moncon):
 
     # Episode Data
     logthis("Inserting episode data into Mongo...", loglevel=LL.VERBOSE)
-    for tk, tss in enumerate(eplist):
+    for tss in eplist:
         # Process each series
         tssid = tss.get('_id')
         logthis("** Episode:", prefix=tssid, suffix="S:%s/E:%s \"%s\"" % (tss.get("SeasonNumber", ""), tss.get("EpisodeNumber", ""), tss.get("EpisodeName", "")), loglevel=LL.DEBUG)
@@ -183,8 +176,7 @@ def to_mongo(indata, moncon):
 
 
     ## Insert Source File data
-    xfiles = {}
-    for fname, fdata in indata['files'].iteritems():
+    for fname, fdata in indata['files'].iteritems():  # pylint: disable=unused-variable
         thisf = {}
         md5 = fdata['checksum']['md5']
         up2dater['files']['total'] += 1
@@ -344,7 +336,7 @@ def find_matching_episode(sdex, fpinfo):
     """
     episode_id = int(fpinfo.get('episode', 0))
     season_id = int(fpinfo.get('season', 0))
-    for epi, epdata in enumerate(sdex.get('episodes', [])):
+    for epdata in sdex.get('episodes', []):
         if int(epdata['SeasonNumber']) == season_id:
             if int(epdata['EpisodeNumber']) == episode_id:
                 return epdata['_id']
