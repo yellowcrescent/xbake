@@ -82,6 +82,8 @@ def run(xconfig):
     if config.run['single']:
         new_files, flist = scan_single(config.run['infile'], config.scan['mforce'], config.scan['nochecksum'], config.scan['savechecksum'])
     else:
+        if config.run['tsukimi'] is True:
+            tstatus('scanlist', scanlist=get_scanlist(config.run['infile'], config.scan['follow_symlinks']))
         new_files, flist = scan_dir(config.run['infile'], config.scan['follow_symlinks'], config.scan['mforce'], config.scan['nochecksum'], config.scan['savechecksum'])
 
     # Scrape for series information
@@ -189,7 +191,14 @@ def unsetter(xconfig):
     logthis("Overrides cleared.", ccode=C.GRN, loglevel=LL.INFO)
     return 0
 
-def scan_dir(dpath, dreflinks=True, mforce=False, nochecksum=False, savechecksum=True):
+def get_scanlist(dpath, dreflinks=True):
+    """
+    Return a list of files to be scanned by scan_dir()
+    """
+    dryout = scan_dir(dpath, dreflinks, dryrun=True)[1]
+    return dryout.values()
+
+def scan_dir(dpath, dreflinks=True, mforce=False, nochecksum=False, savechecksum=True, dryrun=False):
     """
     Scan a directory recursively; follows symlinks by default
     """
@@ -213,7 +222,8 @@ def scan_dir(dpath, dreflinks=True, mforce=False, nochecksum=False, savechecksum
         # Parse overrides for this directory
         ovrx.update(parse_overrides(tdir))
 
-        logthis("*** Scanning files in directory:", suffix=tdir, loglevel=LL.INFO)
+        if dryrun is False:
+            logthis("*** Scanning files in directory:", suffix=tdir, loglevel=LL.INFO)
 
         # enum files in this directory
         for xv in flist:
@@ -243,10 +253,14 @@ def scan_dir(dpath, dreflinks=True, mforce=False, nochecksum=False, savechecksum
             ovrx_sub = clean_overrides(ovrx)
 
             # Get file properties
-            dasc = scanfile(xvreal, ovrx_sub, mforce, nochecksum, savechecksum)
-            if dasc:
-                ddex[xv] = dasc
+            if dryrun is True:
+                ddex[new_files] = os.path.realpath(tdir + '/' + xv)
                 new_files += 1
+            else:
+                dasc = scanfile(xvreal, ovrx_sub, mforce, nochecksum, savechecksum)
+                if dasc:
+                    ddex[xv] = dasc
+                    new_files += 1
 
     return (new_files, ddex)
 
