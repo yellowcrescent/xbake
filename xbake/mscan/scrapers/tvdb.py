@@ -3,8 +3,8 @@
 # vim: set ts=4 sw=4 expandtab syntax=python:
 """
 
-xbake.mscan.scrapers
-Scraper functions
+xbake.mscan.scrapers.tvdb
+Scrapers: TheTVDb.com
 
 @author   Jacob Hipps <jacob@ycnrg.org>
 @repo     https://git.ycnrg.org/projects/YXB/repos/yc_xbake
@@ -26,8 +26,13 @@ from xbake import __version__
 from xbake.common.logthis import *
 from xbake.mscan.util import *
 
+__desc__ = "TheTVDb.com"
+__author__ = "J. Hipps <jacob@ycnrg.org>"
+__version__ = "1.0.0"
+__date__ = "25 Nov 2016"
 
-def tvdb(xsea, tdex, config):
+
+def run(xsea, tdex, config):
     """
     TheTVDB.com (TVDB) Scraper
     """
@@ -168,6 +173,7 @@ def tvdb_process(indata, config, tdex_id):
 
     return txc
 
+
 def tvdb_process_episodes(epdata, series_id):
     """
     TVDB: Process episode data; returns a list of episodes
@@ -271,14 +277,6 @@ def tvdb_get_artwork(serid, config, adefs={}):
     return xdout
 
 
-def mal(xsea, tdex, config):
-    """
-    MyAnimeList.net (MAL) Scraper
-    """
-    # pylint: disable=unused-argument
-    pass
-
-
 def getxml(uribase, qget=None, qauth=None):
     """
     Make HTTP request and decode XML response
@@ -324,27 +322,3 @@ def safe_split(indata, sepchar='|'):
         return filter(lambda x: len(x.strip()), indata.split(sepchar))
     except:
         return []
-
-
-def mkid_series(tdex_id, xdata):
-    """
-    Create unique series ID
-    """
-    if xdata['tv'].get('debut', None):
-        dyear = str(time.gmtime(float(xdata['tv'].get('debut'))).tm_year)
-    else:
-        dyear = "90" + str(int(time.time()))[-5:]
-    idout = "%s.%s" % (tdex_id, dyear)
-    return idout
-
-
-def mkid_episode(sid, xdata):
-    """
-    Create unique episode ID
-    """
-    if xdata.get('id', None):
-        isuf = xdata['id']
-    else:
-        isuf = str(time.time()).split('.')[1]
-    idout = "%s.%s.%s.%s" % (sid, str(int(xdata.get('SeasonNumber', 0))), str(int(xdata.get('EpisodeNumber', 0))), isuf)
-    return idout

@@ -24,7 +24,7 @@ from xbake import __version__, __date__, defaults
 from xbake.common.logthis import *
 from xbake.common import rcfile
 from xbake.xcode import ffmpeg, xcode, ssonly
-from xbake.mscan import mscan
+from xbake.mscan import mscan, scrapers
 from xbake.srv import daemon
 
 oparser = None
@@ -68,7 +68,7 @@ def parse_cli():
     opg_scan = optparse.OptionGroup(oparser, "Scanning", "Options for media scanner")
     opg_scan.add_option('-S', '--single', action="store_true", dest="run.single", default=False, help="Single-file Mode")
     opg_scan.add_option('-X', '--nosend', action="store_true", dest="scan.nosend", default=False, help="Disable sending data to remote server")
-    opg_scan.add_option('--scraper', action="store", dest="scan.scraper", default=False, metavar="ID", help="Choose scraper to use [tvdb,mal,ann] (default=tvdb)")
+    opg_scan.add_option('--scraper', action="store", dest="scan.scraper", default=False, metavar="ID", help="Choose scraper to use (use 'help' to list available scrapers)")
     opg_scan.add_option('--pretty', action="store_true", dest="scan.pretty", default=False, help="Pretty-print JSON output")
     opg_scan.add_option('-Z', '--nochecksum', action="store_true", dest="scan.nochecksum", default=False, help="Disable checksum calculation during file scanning")
     opg_scan.add_option('--nosave', action="store_false", dest="scan.savechecksum", default=False, help="Do not save checksum results in file extended attributes")
@@ -184,7 +184,15 @@ def _main():
 
     # Set default return code to 1
     rcode = 1
-    if config.run['mode'] == "xcode":
+    if config.scan['scraper'] == "help":
+        scrapers.loadModules()
+        modlist = scrapers.getModuleList()
+        print("** Available scraper modules:\n")
+        for tm in modlist:
+            print("{tm[name]:16} {tm[desc]} [{tm[author]}] (v{tm[version]} {tm[date]})".format(tm=tm))
+        print("")
+        rcode = 250
+    elif config.run['mode'] == "xcode":
         rcode = xcode.run(config)
     elif config.run['mode'] == "ssonly":
         rcode = ssonly.run(config)

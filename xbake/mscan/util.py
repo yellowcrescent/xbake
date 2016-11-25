@@ -125,6 +125,28 @@ def mts_parse(tsstr, mbase=1):
         tacc += tmul * float(tseg)
     return tacc * float(mbase)
 
+def mkid_series(tdex_id, xdata):
+    """
+    Create unique series ID
+    """
+    if xdata['tv'].get('debut', None):
+        dyear = str(time.gmtime(float(xdata['tv'].get('debut'))).tm_year)
+    else:
+        dyear = "90" + str(int(time.time()))[-5:]
+    idout = "%s.%s" % (tdex_id, dyear)
+    return idout
+
+def mkid_episode(sid, xdata):
+    """
+    Create unique episode ID
+    """
+    if xdata.get('id', None):
+        isuf = xdata['id']
+    else:
+        isuf = str(time.time()).split('.')[1]
+    idout = "%s.%s.%s.%s" % (sid, str(int(xdata.get('SeasonNumber', 0))), str(int(xdata.get('EpisodeNumber', 0))), isuf)
+    return idout
+
 
 ## Mediainfo parser
 

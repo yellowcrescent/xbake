@@ -55,6 +55,9 @@ def series_scrape(xconfig):
 
     logthis("** Scraping for series info for %s shows" % (show_count), loglevel=LL.INFO)
 
+    # load scraper modules
+    modlist = scrapers.loadModules()
+
     # Iterate through tdex and scrape for series info
     for xsea, xsdat in tdex.iteritems():
         # Check if series data already exists
@@ -65,10 +68,8 @@ def series_scrape(xconfig):
             continue
         # Execute chosen scraper
         tstatus('series_scrape', scraper=cscraper, tdex_id=xsea, tdex_data=xsdat)
-        if cscraper == 'tvdb':
-            scrapers.tvdb(xsea, tdex, xconfig)
-        elif cscraper == 'mal':
-            scrapers.mal(xsea, tdex, xconfig)
+        if cscraper in modlist:
+            scrapers.scrape(cscraper, xsea, tdex, xconfig)
         elif cscraper in ['none', 'disable', 'disabled', 'off', 'no', '0', '', None, False, 0]:
             logthis("Scraper disabled; scan.scraper =", suffix=str(cscraper), loglevel=LL.VERBOSE)
         else:
