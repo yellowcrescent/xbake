@@ -34,7 +34,7 @@ def show_banner():
     Display banner
     """
     print("")
-    print(C.CYN, "*** ", C.WHT, "yc_xbake", C.OFF)
+    print(C.CYN, "*** ", C.WHT, "XBake", C.OFF)
     print(C.CYN, "*** ", C.CYN, "Version", __version__, "(" + __date__ + ")", C.OFF)
     print(C.CYN, "*** ", C.GRN, "Copyright (c) 2013-2016 J. Hipps / Neo-Retro Group", C.OFF)
     print(C.CYN, "*** ", C.GRN, "J. Hipps <jacob@ycnrg.org>", C.OFF)

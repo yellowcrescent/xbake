@@ -17,20 +17,15 @@ https://ycnrg.org/
 import os
 import re
 import time
-from collections import defaultdict
 
 import requests
 import xmltodict
+import arrow
 
 from xbake import __version__
 from xbake.common.logthis import *
 from xbake.mscan.util import *
 
-EPIMAP = defaultdict(lambda: None, {
-                'EpisodeName': "title",
-                'EpisodeNumber': "episode",
-                'FirstAired': "first_aired"
-            })
 
 def tvdb(xsea, tdex, config):
     """
@@ -49,7 +44,7 @@ def tvdb(xsea, tdex, config):
 
         # Retrieve entry from TVDB
         tvdb_info = tvdb_get_info(tvdb_id, config)
-        tdex[xsea].update(tvdb_process(tvdb_info, config))
+        tdex[xsea].update(tvdb_process(tvdb_info, config, xsea))
         logthis("theTVDb info:", suffix=tvdb_info, loglevel=LL.DEBUG2)
         return True
     else:
@@ -123,7 +118,7 @@ def tvdb_get_info(serid, config, slang="en"):
     return xdout
 
 
-def tvdb_process(indata, config):
+def tvdb_process(indata, config, tdex_id):
     """
     TVDB: Process data and enumerate artwork assets
     """
@@ -137,7 +132,7 @@ def tvdb_process(indata, config):
     logthis("Processing info from theTVDb; enumerating artwork assets", loglevel=LL.VERBOSE)
 
     # Get list of genres; filter out any empty entries
-    txc['genre'] = filter(lambda x: len(x.strip()), iser.get('Genre', '').split('|'))
+    txc['genre'] = safe_split(iser.get('Genre', ''))
 
     # Get attributes
     txc['ctitle'] = iser.get('SeriesName', None)
@@ -149,9 +144,13 @@ def tvdb_process(indata, config):
     txc['tv']['timeslot'] = iser.get('Airs_Time', None)
     txc['tv']['debut'] = date2time(iser.get('FirstAired', None))
     txc['synopsis']['tvdb'] = iser.get('Overview', None)
+    txc['default_synopsis'] = 'tvdb'
     txc['status'] = iser.get('Status', 'unknown').lower()
 
     txc['fetched'] = long(time.time())
+
+    # Generate series ID
+    txc['_id'] = mkid_series(tdex_id, txc)
 
     # Get artwork defaults
     bandefs = {}
@@ -163,19 +162,54 @@ def tvdb_process(indata, config):
     txc['artwork'] = tvdb_get_artwork(txc['xrefs']['tvdb'], config, bandefs)
 
     # Add Episode information
-    if config.run['tsukimi']:
-        txc['episodes'] = []
-        for irow in indata.get('Episode', []):
-            #trow = { filter(lambda x: x[1] == kname, EPIMAP.items())[0][0]: val for kname, val in irow.iteritems() }
-            trow = {EPIMAP[kname]: val for kname, val in irow.iteritems()}
-            del(trow[None])
-            txc['episodes'].append(trow)
-    else:
-        txc['episodes'] = indata.get('Episode', [])
+    txc['episodes'] = tvdb_process_episodes(indata.get('Episode', []), txc['_id'])
 
     logthis("Series metadata set.", loglevel=LL.VERBOSE)
 
     return txc
+
+def tvdb_process_episodes(epdata, series_id):
+    """
+    TVDB: Process episode data; returns a list of episodes
+    """
+    epo = []
+    for tepi in epdata:
+        trow = {
+                '_id': mkid_episode(series_id, tepi),
+                'series_id': series_id,
+                'season': int(tepi.get('SeasonNumber')),
+                'episode': int(tepi.get('EpisodeNumber')),
+                'episode_absolute': None,
+                'title': tepi.get('EpisodeName'),
+                'alt_titles': [],
+                'first_aired': None,
+                'lang': tepi.get('Language'),
+                'lastupdated': int(tepi.get('lastupdated', int(time.time()))),
+                'people': {'director': safe_split(tepi.get('Director', '')),
+                           'writers': safe_split(tepi.get('Writer', '')),
+                           'guests': safe_split(tepi.get('GuestStars', '')),
+                           'actors': []},
+                'xref': {'tvdb': tepi.get('id'), 'tvdb_season': tepi.get('seasonid'),
+                         'tvdb_series': tepi.get('seriesid'), 'imdb': tepi.get('IMDB_ID'),
+                         'production_code': tepi.get('ProductionCode')},
+                'synopsis': {'tvdb': tepi.get('Overview')},
+                'default_synopsis': 'tvdb',
+                'scrape_time': int(time.time())
+               }
+        if tepi.get('absolute_number') is not None:
+            try:
+                trow['episode_absolute'] = int(tepi.get('absolute_number'))
+            except Exception as e:
+                logexc(e, "Failed to parse absolute_number for %s" % (trow['_id']))
+        try:
+            if tepi.get('FirstAired') is not None:
+                trow['first_aired'] = arrow.get(tepi.get('FirstAired')).timestamp
+        except Exception as e:
+            logexc(e, "Failed to parse date from FirstAired value for %s" % (trow['_id']))
+        epo.append(trow)
+
+    return epo
+
 
 def tvdb_get_artwork(serid, config, adefs={}):
     """
@@ -236,6 +270,7 @@ def tvdb_get_artwork(serid, config, adefs={}):
 
     return xdout
 
+
 def mal(xsea, tdex, config):
     """
     MyAnimeList.net (MAL) Scraper
@@ -279,3 +314,37 @@ def date2time(dstr, fstr="%Y-%m-%d"):
     except Exception as e:
         logthis("strptime() conversion failed:", suffix=e, loglevel=LL.VERBOSE)
         return None
+
+
+def safe_split(indata, sepchar='|'):
+    """
+    split string safely
+    """
+    try:
+        return filter(lambda x: len(x.strip()), indata.split(sepchar))
+    except:
+        return []
+
+
+def mkid_series(tdex_id, xdata):
+    """
+    Create unique series ID
+    """
+    if xdata['tv'].get('debut', None):
+        dyear = str(time.gmtime(float(xdata['tv'].get('debut'))).tm_year)
+    else:
+        dyear = "90" + str(int(time.time()))[-5:]
+    idout = "%s.%s" % (tdex_id, dyear)
+    return idout
+
+
+def mkid_episode(sid, xdata):
+    """
+    Create unique episode ID
+    """
+    if xdata.get('id', None):
+        isuf = xdata['id']
+    else:
+        isuf = str(time.time()).split('.')[1]
+    idout = "%s.%s.%s.%s" % (sid, str(int(xdata.get('SeasonNumber', 0))), str(int(xdata.get('EpisodeNumber', 0))), isuf)
+    return idout

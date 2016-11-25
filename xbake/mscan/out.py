@@ -15,7 +15,6 @@ https://ycnrg.org/
 """
 
 import json
-import time
 from datetime import datetime
 
 import requests
@@ -47,10 +46,8 @@ def to_mongo(indata, moncon):
         if not sdata.get('ctitle', False):
             continue
 
-        # Generate Series ID
-        tser_id = mkid_series(sname, sdata)
-        # Store this for later; will be used to check if this series was updated during this round
-        indata['series'][sname]['_id'] = tser_id
+        # Store series_id for later; will be used to check if this series was updated during this round
+        tser_id = sdata['_id']
         logthis("** Series ID:", suffix=tser_id, loglevel=LL.DEBUG)
 
         # Build entry
@@ -69,19 +66,11 @@ def to_mongo(indata, moncon):
                 }
 
         # Process episodes
-        for epnum, epdata in enumerate(sdata['episodes']):
-            thisep = epdata
-
-            # Generate Episode ID
-            tep_id = mkid_episode(tser_id, epdata)
-            # Store this for later; will be used to check if this episode was updated during this round
+        for epnum, thisep in enumerate(sdata['episodes']):
+            # Store episode_id for later; will be used to check if this episode was updated during this round
+            tep_id = thisep['_id']
             indata['series'][sname]['episodes'][epnum]['_id'] = tep_id
             logthis("** Episode ID:", suffix=tep_id, loglevel=LL.DEBUG)
-
-            thisep['tvdb_id'] = epdata.get('id')
-            thisep['sid'] = tser_id
-            del(thisep['id'])
-
             eplist.append(thisep)
 
         slist.append(thisx)
@@ -305,29 +294,6 @@ def to_server(indata, shost, xconfig):
         xstat = {'status': "error", 'message': "Server sent back an invalid response"}
 
     return xstat
-
-def mkid_series(tdex_id, xdata):
-    """
-    Create unique series ID
-    """
-    if xdata['tv'].get('debut', None):
-        dyear = str(time.gmtime(float(xdata['tv'].get('debut'))).tm_year)
-    else:
-        dyear = "90" + str(int(time.time()))[-5:]
-    idout = "%s.%s" % (tdex_id, dyear)
-    return idout
-
-
-def mkid_episode(sid, xdata):
-    """
-    Create unique episode ID
-    """
-    if xdata.get('id', None):
-        isuf = xdata['id']
-    else:
-        isuf = str(time.time()).split('.')[1]
-    idout = "%s.%s.%s.%s" % (sid, str(int(xdata.get('SeasonNumber', 0))), str(int(xdata.get('EpisodeNumber', 0))), isuf)
-    return idout
 
 
 def find_matching_episode(sdex, fpinfo):

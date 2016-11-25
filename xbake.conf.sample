@@ -1,7 +1,12 @@
+# vim: set ts=4 sw=4 expandtab syntax=conf:
 ###############################################################################
 ##
 ## xbake.conf
 ## YC XBake: Configuration File
+## https://ycnrg.org/
+##
+## This file can be placed at ./xbake.conf, ~/.xbake/xbake.conf, ~/.xbake,
+## or /etc/xbake.conf
 ##
 ###############################################################################
 
@@ -55,6 +60,7 @@
 # output = "mongodb://localhost:27017/xbake"
 
 ## scraper:         Scraper to use when populating series information
+##                  To disable scraping, set to "none"
 ##                  default: "tvdb"
 # scraper = "tvdb"
 
@@ -72,6 +78,10 @@
 ##                  is only useful for testing/troubleshooting
 ##                  default: 0 (off)
 # nochecksum = 0
+
+## follow_symlinks: Follow symbolic links when walking directories
+##                  default: 1 (enabled)
+# follow_symlinks = 1
 
 [xcode]
 ## libx264_preset:  Set the x264 preset to use when encoding.
@@ -187,7 +197,8 @@
 ## path:            ffmpeg path
 ##                  This is determined automatically and should only be set
 ##                  if you're using a test, debug, or local install of ffmpeg
-##                  that has not been installed system-wide
+##                  that has not been installed system-wide, or is not in
+##                  your path.
 ##                  default: (not set)
 # path = "/usr/bin/ffmpeg"
 
@@ -211,33 +222,108 @@
 # mirror = "http://thetvdb.com"
 
 [srv]
-# xcode_scale_allowance = "10"
+## xcode_scale_allowance: Resize scale tolerance
+##                  When resizing video to fit a profile specification,
+##                  XBake will not re-scale the video if the dimensions
+##                  are within the number of pixels specified by this
+##                  option. This is to prevent needlessly scaling video
+##                  that has been cropped by a few pixels, as is commonly
+##                  done by certain encoders/groups to remove small deadzones
+##                  on the bottom or top of the picture.
+##                  default: 10
+# xcode_scale_allowance = 10
+
+## xcode_show_ffmpeg:   Passthru ffmpeg output for queued requests
+##                  With this option enabled, ffmpeg output is logged by XBake.
+##                  default: 0 (off)
 # xcode_show_ffmpeg = 0
+
+## xfer_path:       Incoming transfer path
+##                  Directory to transfer files from other servers. Files
+##                  are then transcoded and saved to the final path.
+##                  default: "."
 # xfer_path = "/var/www/mediasrv/incoming"
+
+## xfer_hostonly:   Connect using only the host portion of the FQDN
+##                  With this option enabled, XBake will attempt to
+##                  connect using a machine's shortname when transferring
+##                  files. (eg. minorin.ycnrg.org -> minorin).
+##                  default: 0 (off)
 # xfer_hostonly = 0
+
+## port:            Bound port
+##                  default: 7037
 # port = 7037
+
+## iface:           Bound interface
+##                  Choose the IP address of an interface to bind to. Useful
+##                  If the machine has multiple interfaces, or you wish to
+##                  use a specific aliased IP.
+##                  default: "0.0.0.0" (all interfaces)
+# iface = "127.0.0.1"
 # iface = "0.0.0.0"
+# iface = "10.10.1.22"
+
+## xcode_default_profile:  Default transcoding profile
+##                  Transcoding profile to use when one is not provided
+##                  when an item is enqueued.
+##                  default: (not set)
 # xcode_default_profile = "720p"
-# xcode_outpath = "."
+
+## xcode_outpath:   Transcode output path
+##                  Base directory path for saving output video. In this
+##                  directory, files are then sorted by version
+##                  (eg. '/opt/video/720p/Kaminomi - 11.mp4').
+##                  default: '.'
+# xcode_outpath = "/srv/www/vod"
+# xcode_outpath = "/opt/video"
+
+## shared_key:      Preshared authentication key
+##                  Secret key used for simple authentication by
+##                  remote agents.
+##                  IMPORTANT: This should be set before running as a daemon!
+##                  default: (not set)
 # shared_key = "this_is_a_secret_key"
 
 [mongo]
-# host = "localhost"
-# port = 27017
-# database = "xbake"
+## uri:             MongoDB connection URI
+##                  A connection to MongoDB is required for most XBake
+##                  functionality.
+##                  default: "mongodb://localhost:27017/ycplay"
+# uri = "mongodb://mongo.example.com:12345/myDatabase"
+# uri = "mongodb://user:password@mongo.example.net/myDatabase"
 
 [redis]
+## host:            Redis hostname
+##                  default: "localhost"
 # host = "localhost"
+
+## prefix:          Redis key prefix
+##                  Value prefixed to all keys; helps prevent key collisions if
+##                  two applications accidentally (or on purpose) share the same
+##                  Redis DB
+##                  default: "xbake"
 # prefix = "xbake"
+
+## db:              Redis database number
+##                  default: 6
 # db = 6
+
+## port:            Redis port number
+##                  default: 6379
 # port = 6379
 
 [hosts]
+## Host Metrics:
+## Metrics are used to determine which server a file should be transferred from
+## if a file is available from multiple locations. Lower is higher priority.
 # jotunn.example.com = 0
 # ragnarok.example.com = 1
 # thor.example.com = 20
 
 [profiles]
+## Transcoding Profiles
+## profile_name = "setting=value,setting2=value2,..."
 480p = "height=480,width=854,aspect=16:9,crf=20,abr=128"
 720p = "height=720,width=1280,apsect=16:9,crf=24,abr=192"
-1080p = "height=1080,width=1920,aspect=16:9,crf=26,abr=192"
+1080p = "height=1080,width=1920,aspect=16:9,crf=24,abr=192"

@@ -169,7 +169,7 @@ def logexc(e, msg=None, prefix=None):
         msg = "Exception logged"
     suffix = C.WHT + u"[" + C.YEL + str(e.__class__.__name__) + C.WHT + u"] " + C.YEL + str(e)
     logthis(msg, LL.ERROR, prefix, suffix)
-    tstatus('exception', msg=msg, eclass=e.__name__, prefix=prefix)
+    tstatus('exception', msg=msg, eclass=str(e.__class__.__name__), prefix=prefix)
 
 def loglevel(newlvl=None):
     global g_loglevel
