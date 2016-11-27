@@ -83,6 +83,19 @@
 ##                  default: 1 (enabled)
 # follow_symlinks = 1
 
+## workaround_mediainfo_bugs: Workaround MediaInfo filename limitations
+##					Creates a symlink in tempdir (usually /tmp) to certain files that
+##					contain an asterisk (*) or question mark (?) anywhere
+##					in their realpath.
+##					<https://sourceforge.net/p/mediainfo/bugs/950/>
+##					<https://bugzilla.redhat.com/show_bug.cgi?id=1295708>
+##					default: 1 (enabled)
+# workaround_mediainfo_bugs = 1
+
+## tempdir:			Path to temp directory
+##					default: "/tmp"
+# tempdir = "/tmp"
+
 [xcode]
 ## libx264_preset:  Set the x264 preset to use when encoding.
 ##                  available: ultrafast, superfast, veryfast, faster, fast,

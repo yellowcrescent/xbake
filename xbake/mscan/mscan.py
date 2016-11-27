@@ -172,8 +172,9 @@ def setter(xconfig):
 
     setout = {}
     for k, v in setmap.iteritems():
-        if config.run.get(k, False):
-            setout[v] = config.run[k]
+        if k in xconfig.run:
+            if xconfig.run[k]:
+                setout[v] = xconfig.run[k]
 
     logthis("Setting overrides:\n", suffix=print_r(setout), loglevel=LL.VERBOSE)
     fsutil.xattr_set(infile, setout)
@@ -357,7 +358,7 @@ def scanfile(rfile, ovrx={}, mforce=False, nochecksum=False, savechecksum=True):
                 save_checksums(xvreal, dasc['checksum'])
 
     # Get mediainfo
-    dasc['mediainfo'] = util.mediainfo(xvreal)
+    dasc['mediainfo'] = util.mediainfo(xvreal, config)
 
     # Determine series information from path and filename
     dasc['fparse'], dasc['tdex_id'] = parse_episode_filename(dasc, fovr)

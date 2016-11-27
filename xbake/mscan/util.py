@@ -194,14 +194,22 @@ MILUT = {
             'forced': MIP.BOOL
          }
 
-def mediainfo(fname):
+def mediainfo(fpath, xconfig):
     """
     Use PyMediainfo to retrieve info about @fname, then parse and filter this
     into a more usable format, which is returned as a dict
     """
     global MILUT
 
-    logthis("Parsing mediainfo from file:", suffix=fname, loglevel=LL.VERBOSE)
+    logthis("Parsing mediainfo from file:", suffix=fpath, loglevel=LL.VERBOSE)
+
+    if xconfig.scan['workaround_mediainfo_bugs'] and re.search(r'[\*\?]', fpath):
+        mi_symlink = True
+        fname = templink(fpath, xconfig.scan['tempdir'])
+        logthis("Creating symlink to workaround MediaInfo limitations:", suffix=fname, loglevel=LL.VERBOSE)
+    else:
+        mi_symlink = False
+        fname = fpath
 
     # parse output of mediainfo and convert raw XML with pymediainfo
     miobj = MediaInfo.parse(fname)
@@ -291,6 +299,18 @@ def mediainfo(fname):
         elif ttype != 'menu':
             outdata[ttype].append(tblock)
 
+    if mi_symlink is True:
+        os.unlink(fname)
+
     logthis("Got mediainfo for file:\n", suffix=outdata, loglevel=LL.DEBUG2)
 
     return outdata
+
+def templink(fpath, tbase='/tmp'):
+    """
+    Create a symlink to a file to workaround mediainfo/libzen bugs
+    https://sourceforge.net/p/mediainfo/bugs/950/
+    """
+    tpath = (tbase + '/' + os.path.basename(fpath).replace('*', '').replace('?', '')).decode('utf-8', 'ignore')
+    os.symlink(fpath, tpath)
+    return tpath

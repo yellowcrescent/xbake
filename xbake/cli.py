@@ -158,7 +158,7 @@ def parse_cli():
 def _main():
     """CLI entry point"""
     # Show banner
-    if len(sys.argv) < 2 or sys.argv[1] != '--version' and sys.argv[1] != '-q':
+    if len(sys.argv) < 2 or sys.argv[1] == '-h' or sys.argv[1] == '--help':
         show_banner()
 
     # Set default loglevel
@@ -201,7 +201,7 @@ def _main():
     elif config.run['mode'] == "srv":
         daemon.start(config)
     elif config.run['mode'] == "set":
-        if config.run.get('ovr_clear', False):
+        if config.run['ovr_clear'] is True:
             rcode = mscan.unsetter(config)
         else:
             rcode = mscan.setter(config)

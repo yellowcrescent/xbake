@@ -406,7 +406,7 @@ def transcode(infile, outfile=None):
     if vinfo.vername:
         vvdata = {
                     'encoder': {'encode': ' '.join(ffoptions)},
-                    'mediainfo': util.mediainfo(vinfo.outfile.full),
+                    'mediainfo': util.mediainfo(vinfo.outfile.full, config),
                     'location': {
                         'uri': vinfo.vername + '/' + vinfo.outfile.file,
                         'realpath': vinfo.outfile.full

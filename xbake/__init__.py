@@ -19,8 +19,8 @@ Refer to README.md for installation and usage instructions.
 
 from xbake.common.logthis import LL
 
-__version__ = "0.10.185"
-__date__ = "25 Nov 2016"
+__version__ = "0.10.186"
+__date__ = "26 Nov 2016"
 
 defaults = {
                 'run': {
@@ -31,7 +31,8 @@ defaults = {
                     'bake': False,
                     'vscap': None,
                     'single': False,
-                    'tsukimi': False
+                    'tsukimi': False,
+                    'ovr_clear': False
                 },
                 'core': {
                     'loglevel': LL.INFO
@@ -78,7 +79,9 @@ defaults = {
                     'nochecksum': False,
                     'savechecksum': True,
                     'output': None,
-                    'follow_symlinks': True
+                    'follow_symlinks': True,
+                    'workaround_mediainfo_bugs': True,
+                    'tempdir': "/tmp"
                 },
                 'tvdb': {
                     'mirror': "http://thetvdb.com",
