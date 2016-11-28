@@ -61,7 +61,6 @@ def locateAll(xconfig):
     bpath.mepath = locate('mkvextract')
     bpath.impath = locate('convert')
     bpath.wppath = locate('cwebp')
-    bpath.rhash = locate('rhash')
 
 def version():
     """

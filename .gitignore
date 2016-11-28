@@ -6,3 +6,4 @@ xbake.conf
 fonts
 *.pid
 test
+docs

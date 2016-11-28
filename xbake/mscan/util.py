@@ -17,7 +17,6 @@ https://ycnrg.org/
 import os
 import re
 import time
-import subprocess
 import pwd
 import grp
 import hashlib
@@ -25,43 +24,76 @@ import hashlib
 from pymediainfo import MediaInfo
 
 from xbake.common.logthis import *
-from xbake.xcode.ffmpeg import bpath  # FIXME
 
+try:
+    from xbake import rhash as librhash
+except Exception as e:
+    logexc(e, "Failed to import RHash bindings")
+    failwith(ER.DEPMISSING, "Please install librhash shared libraries from Git or your package manager")
+
+RHSLUT = {
+            0x01: "CRC32",
+            0x02: "MD4",
+            0x04: "MD5",
+            0x08: "SHA1",
+            0x10: "TIGER",
+            0x20: "TTH",
+            0x40: "BTIH",
+            0x80: "ED2K",
+            0x100: "AICH",
+            0x200: "WHIRLPOOL",
+            0x400: "RIPEMD160",
+            0x800: "GOST",
+            0x1000: "GOST_CRYPTOPRO",
+            0x2000: "HAS160",
+            0x4000: "SNEFRU128",
+            0x8000: "SNEFRU256",
+            0x10000: "SHA224",
+            0x20000: "SHA256",
+            0x40000: "SHA384",
+            0x80000: "SHA512",
+            0x100000: "EDONR256",
+            0x200000: "EDONR512",
+            0x0400000: "SHA3_224",
+            0x0800000: "SHA3_256",
+            0x1000000: "SHA3_384",
+            0x2000000: "SHA3_512"
+        }
 
 def md5sum(fname):
     """
     Use rhash to calculate the MD5 checksum of @fname, then return MD5 as a string
     """
-    return rhash(fname, "md5")['md5']
+    return rhash(fname, librhash.MD5)['md5']
 
 def checksum(fname):
     """
     Use rhash to calculate checksums of @fname, then return as a dict {md5, crc32, ed2k}
     """
-    return rhash(fname, ["md5", "CRC32", "ed2k"])
+    hout = rhash(fname, [librhash.MD5, librhash.CRC32, librhash.ED2K])
+    hout['crc32'] = hout['crc32'].upper()
+    return hout
 
 def rhash(infile, hlist):
     """
-    Execute rhash (external binary) to calculate a list of specified hashes @hlist against @infile
+    Use librhash to calculate a list of specified hashes @hlist against @infile
     """
-    global rhpath
-    if isinstance(hlist, str):
+    if isinstance(hlist, int):
         hxlist = [hlist]
     else:
         hxlist = hlist
-    hxpf = ""
-    for i in hxlist:
-        hxpf += "%%{%s} " % i
-    rout = subprocess.check_output([bpath.rhash, '--printf', hxpf, infile])
-    rolist = rout.split(' ')
+
+    # run RHash for chosen hashes against infile
+    t_start = time.time()
+    rh = librhash.RHash(sum(hxlist))
+    rh.update_file(infile)
+    rh.finish()
+    t_duration = time.time() - t_start
+    logthis("librhash runtime:", suffix=str(t_duration), loglevel=LL.DEBUG)
+
     hout = {}
-    k = 0
-    for i in rolist:
-        try:
-            hout[hxlist[k].lower()] = i
-        except IndexError:
-            break
-        k += 1
+    for thash in hlist:
+        hout[RHSLUT[thash].lower()] = rh.hex(thash)
     return hout
 
 def dstat(infile):

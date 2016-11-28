@@ -36,8 +36,8 @@ def show_banner():
     print("")
     print(C.CYN, "*** ", C.WHT, "XBake", C.OFF)
     print(C.CYN, "*** ", C.CYN, "Version", __version__, "(" + __date__ + ")", C.OFF)
-    print(C.CYN, "*** ", C.GRN, "Copyright (c) 2013-2016 J. Hipps / Neo-Retro Group", C.OFF)
-    print(C.CYN, "*** ", C.GRN, "J. Hipps <jacob@ycnrg.org>", C.OFF)
+    print(C.CYN, "*** ", C.GRN, "Copyright (c) 2013-2016 Jacob Hipps <jacob@ycnrg.org>", C.OFF)
+    print(C.CYN, "*** ", C.GRN, "RHash & librhash, Copyright (c) 2011-2012 Sergey Basalaev & Aleksey Kravchenko <http://rhash.anz.ru/>", C.OFF)
     print(C.CYN, "*** ", C.YEL, "https://ycnrg.org/", C.OFF)
     print("")
 
