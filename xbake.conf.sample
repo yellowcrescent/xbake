@@ -96,6 +96,10 @@
 ##					default: "/tmp"
 # tempdir = "/tmp"
 
+## procs:			Number of worker processes to spawn
+##					default: 0 (auto; spawn number of workers equal to CPU threads)
+# procs = 0
+
 [xcode]
 ## libx264_preset:  Set the x264 preset to use when encoding.
 ##                  available: ultrafast, superfast, veryfast, faster, fast,

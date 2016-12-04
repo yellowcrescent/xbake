@@ -19,8 +19,8 @@ Refer to README.md for installation and usage instructions.
 
 from xbake.common.logthis import LL
 
-__version__ = "0.10.187"
-__date__ = "28 Nov 2016"
+__version__ = "0.10.188"
+__date__ = "04 Dec 2016"
 
 defaults = {
                 'run': {
@@ -81,7 +81,8 @@ defaults = {
                     'output': None,
                     'follow_symlinks': True,
                     'workaround_mediainfo_bugs': True,
-                    'tempdir': "/tmp"
+                    'tempdir': "/tmp",
+                    'procs': 0
                 },
                 'tvdb': {
                     'mirror': "http://thetvdb.com",

@@ -100,3 +100,13 @@ def series_add(sname, ovrx=None):
 def get_tdex():
     """return tdex object"""
     return tdex
+
+def set_tdex(tdexptr):
+    """set tdex to external object"""
+    global tdex
+    tdex = tdexptr
+
+def decouple_tdex():
+    """make a copy of tdex locally to decouple from MP namespace"""
+    global tdex
+    tdex = deepcopy(tdex)

@@ -21,8 +21,10 @@ import json
 import time
 import socket
 import codecs
+import multiprocessing
 from urlparse import urlparse
 
+from setproctitle import setproctitle
 import distance
 import arrow
 
@@ -78,13 +80,19 @@ def run(xconfig):
         elif not config.run['single'] and not os.path.isdir(config.run['infile']):
             failwith(ER.OPT_BAD, "file [%s] is not a directory; use --single mode if scanning only one file" % (config.run['infile']))
 
+    # Set proctitle
+    try:
+        setproctitle("xbake: scanning %s" % (config.run['infile']))
+    except:
+        pass
+
     # Examine and enumerate files
     if config.run['single']:
         new_files, flist = scan_single(config.run['infile'], config.scan['mforce'], config.scan['nochecksum'], config.scan['savechecksum'])
     else:
         if config.run['tsukimi'] is True:
             tstatus('scanlist', scanlist=get_scanlist(config.run['infile'], config.scan['follow_symlinks']))
-        new_files, flist = scan_dir(config.run['infile'], config.scan['follow_symlinks'], config.scan['mforce'], config.scan['nochecksum'], config.scan['savechecksum'])
+        new_files, flist = scan_dir(config.run['infile'], config.scan['follow_symlinks'], config.scan['mforce'], config.scan['nochecksum'], config.scan['savechecksum'], config.scan['procs'])
 
     # Scrape for series information
     if new_files > 0:
@@ -199,13 +207,29 @@ def get_scanlist(dpath, dreflinks=True):
     dryout = scan_dir(dpath, dreflinks, dryrun=True)[1]
     return dryout.values()
 
-def scan_dir(dpath, dreflinks=True, mforce=False, nochecksum=False, savechecksum=True, dryrun=False):
+def scan_dir(dpath, dreflinks=True, mforce=False, nochecksum=False, savechecksum=True, procs=0, dryrun=False):
     """
     Scan a directory recursively; follows symlinks by default
     """
     ddex = {}
     new_files = 0
 
+    if dryrun is False:
+        ## Set up workers and IPC
+        if procs == 0:
+            procs = multiprocessing.cpu_count()
+        mp_inq = multiprocessing.Queue()
+        mp_outq = multiprocessing.Queue()
+        mp_tdexq = multiprocessing.Queue()
+
+        ## Start queue runners
+        wlist = []
+        for wid in range(procs): # pylint: disable=unused-variable
+            cworker = multiprocessing.Process(name="xbake: scanrunner", target=scanrunner, args=(mp_inq, mp_outq, mp_tdexq))
+            wlist.append(cworker)
+            cworker.start()
+
+    ## Enumerate files
     for tdir, dlist, flist in os.walk(unicode(dpath), followlinks=dreflinks):  # pylint: disable=unused-variable
         # get base & parent dir names
         tdir_base = os.path.split(tdir)[1]  # pylint: disable=unused-variable
@@ -258,10 +282,45 @@ def scan_dir(dpath, dreflinks=True, mforce=False, nochecksum=False, savechecksum
                 ddex[new_files] = os.path.realpath(tdir + '/' + xv)
                 new_files += 1
             else:
-                dasc = scanfile(xvreal, ovrx_sub, mforce, nochecksum, savechecksum)
-                if dasc:
-                    ddex[xv] = dasc
+                mp_inq.put({'rfile': xvreal, 'ovrx': ovrx_sub, 'mforce': mforce, 'nochecksum': nochecksum, 'savechecksum': savechecksum})
+
+    ## Tend the workers
+    if dryrun is False:
+        # Pump terminators at the end of the queue
+        for wid in range(procs):
+            mp_inq.put({'EOF': True})
+
+        # Monitor scanrunner progress
+        logthis("File enumeration complete. Waiting for scanrunner to complete...", loglevel=LL.DEBUG)
+        while len(wlist) > 0:
+            # pull scan data off the outbound queue
+            for tk in range(mp_outq.qsize()):  # pylint: disable=unused-variable
+                try:
+                    xfile, xdata = mp_outq.get(block=False)
+                    logthis("got file from queue:", suffix=xfile, loglevel=LL.DEBUG)
+                    ddex[xfile] = xdata
                     new_files += 1
+                except:
+                    pass
+
+            # pull series data from tdex queue
+            for tk in range(mp_tdexq.qsize()):  # pylint: disable=unused-variable
+                try:
+                    xkey, xdata = mp_tdexq.get(block=False)
+                    logthis("got series from tdex queue:", suffix=xkey, loglevel=LL.DEBUG)
+                    if xkey in mdb.tdex:
+                        mdb.tdex[xkey]['count'] += xdata['count']
+                    else:
+                        mdb.tdex[xkey] = xdata
+                except:
+                    pass
+
+            # check to see if the kids have died yet
+            for wk, wid in enumerate(wlist):
+                if not wid.is_alive():
+                    logthis("Scanrunner is complete; pid =", suffix=wid.pid, loglevel=LL.DEBUG)
+                    del(wlist[wk])
+                    break
 
     return (new_files, ddex)
 
@@ -285,6 +344,26 @@ def scan_single(dfile, mforce=False, nochecksum=False, savechecksum=True):
         new_files += 1
 
     return (new_files, ddex)
+
+
+def scanrunner(in_q, out_q, tdex_q):
+    """
+    Process queue runner
+    """
+    hproc = multiprocessing.current_process()
+    setproctitle("xbake: scanrunner")
+    while True:
+        # pop next job off the queue; will block until a job is available
+        thisjob = in_q.get()
+        if thisjob.get('EOF') is not None:
+            logthis("Got end-of-queue marker; terminating; pid =", suffix=hproc.pid, loglevel=LL.DEBUG)
+            for tkey, tshow in mdb.tdex.iteritems():
+                tdex_q.put((tkey, tshow))
+            # we need to wait until the master process pulls our items from the queue
+            while tdex_q.qsize() > 0 or out_q.qsize() > 0:
+                time.sleep(0.1)
+            os._exit(0)
+        out_q.put((thisjob['rfile'], scanfile(**thisjob)))
 
 
 def scanfile(rfile, ovrx={}, mforce=False, nochecksum=False, savechecksum=True):
