@@ -9,7 +9,7 @@ Screenshot capture
 @author   Jacob Hipps <jacob@ycnrg.org>
 @repo     https://git.ycnrg.org/projects/YXB/repos/yc_xbake
 
-Copyright (c) 2013-2016 J. Hipps / Neo-Retro Group, Inc.
+Copyright (c) 2013-2017 J. Hipps / Neo-Retro Group, Inc.
 https://ycnrg.org/
 
 """
@@ -56,31 +56,47 @@ def run(xconfig):
     monjer = db.mongo(config.mongo)
 
     # Grab the frame
+    vc_offset = None
     if config.run['vscap']:
-        vc_offset = config.run['vscap']
-    else:
-        logthis("No frame capture offset specified. Determining one automagically.", loglevel=LL.INFO)
+        try:
+            vc_offset = str(int(config.run['vscap']))
+        except ValueError:
+            logthis("Invalid vscap offset specified, discarding", loglevel=LL.WARNING)
+
+    if vc_offset is None:
+        logthis("No valid frame capture offset specified. Determining one automagically.", loglevel=LL.INFO)
         vc_offset = get_magic_offset(vinfo_id)
 
-    vsdata = sscapture(config.run['infile'], vc_offset)
+    vsdata = sscapture(config, vc_offset, vinfo_id)
+    tstatus('output', event='vscap', output=vsdata)
 
-    # Update Mongo entry
-    zdata = monjer.findOne('videos', {'_id': vinfo_id})
-    if zdata:
-        zdata['vscap'] = vsdata
-        monjer.upsert('videos', vinfo_id, zdata)
-        logthis("Entry updated OK", loglevel=LL.INFO)
+    if vsdata is not None:
+        if not config.run['noupdate']:
+            # Update Mongo entry
+            zdata = monjer.findOne('videos', {'_id': vinfo_id})
+            if zdata:
+                zdata['vscap'] = vsdata
+                monjer.upsert('videos', vinfo_id, zdata)
+                logthis("Entry updated OK", loglevel=LL.INFO)
+            else:
+                logthis("No entry found, skipping update")
+
+        logthis("*** Screenshot task completed successfully.", loglevel=LL.INFO)
+        #tstatus('complete', status='ok')
+        retval = 0
     else:
-        logthis("No entry found, skipping update")
-
-    logthis("*** Screenshot task completed successfully.", loglevel=LL.INFO)
-    return 0
+        logthis("!! Screenshot task failed.", loglevel=LL.ERROR)
+        #tstatus('complete', status='fail')
+        retval = 1
+    return retval
 
 
 def get_magic_offset(vid=None):
     """
-    if no vscap offset was set, let's choose something somewhat sensical
+    if no vscap offset was set, let's choose something somewhat sensible
     """
+    global monjer
+
     base_offset = None
     if vid is not None:
         # get chapter list
@@ -92,7 +108,7 @@ def get_magic_offset(vid=None):
             clist = []
 
         # filter out any nasties
-        cfilter = re.compile('(^(nc)?(op|ed)$|intro|synopsis|preview|recap|last|eyecatch|interlude|break)', re.I)
+        cfilter = re.compile('(^(nc)?(op|ed)$|intro|outro|endcard|title|synopsis|preview|recap|last|eyecatch|interlude|break)', re.I)
         clist = filter(lambda x: not cfilter.search(x['title']), clist)
 
         if len(clist) > 0:
@@ -101,11 +117,15 @@ def get_magic_offset(vid=None):
             cpick = int(len(clist) / 1.5)
             base_offset = clist[cpick]['offset']
         else:
-            base_offset = None
+            try:
+                # choose a frame about 1/3 through the video
+                base_offset = int(vdata['mediainfo']['general']['duration'] * 0.30)
+            except:
+                base_offset = None
 
     if base_offset is None:
-        # 440, yolo
-        base_offset = 440.0
+        # 140, yolo
+        base_offset = 140.0
 
     # add 8 seconds to catch start of the scene,
     # hopefully missing any titles or fade-in

@@ -9,7 +9,7 @@ Command-line interface & arg parsing
 @author   Jacob Hipps <jacob@ycnrg.org>
 @repo     https://git.ycnrg.org/projects/YXB/repos/yc_xbake
 
-Copyright (c) 2013-2016 J. Hipps / Neo-Retro Group, Inc.
+Copyright (c) 2013-2017 J. Hipps / Neo-Retro Group, Inc.
 https://ycnrg.org/
 
 """
@@ -26,6 +26,7 @@ from xbake.common import rcfile
 from xbake.xcode import ffmpeg, xcode, ssonly
 from xbake.mscan import mscan, scrapers
 from xbake.srv import daemon
+from xbake import ascan
 
 oparser = None
 
@@ -36,7 +37,7 @@ def show_banner():
     print("")
     print(C.CYN, "*** ", C.WHT, "XBake", C.OFF)
     print(C.CYN, "*** ", C.CYN, "Version", __version__, "(" + __date__ + ")", C.OFF)
-    print(C.CYN, "*** ", C.GRN, "Copyright (c) 2013-2016 Jacob Hipps <jacob@ycnrg.org>", C.OFF)
+    print(C.CYN, "*** ", C.GRN, "Copyright (c) 2013-2017 Jacob Hipps <jacob@ycnrg.org>", C.OFF)
     print(C.CYN, "*** ", C.GRN, "RHash & librhash, Copyright (c) 2011-2012 Sergey Basalaev & Aleksey Kravchenko <http://rhash.anz.ru/>", C.OFF)
     print(C.CYN, "*** ", C.YEL, "https://ycnrg.org/", C.OFF)
     print("")
@@ -46,7 +47,7 @@ def parse_cli():
     Parse command-line options
     """
     global oparser
-    oparser = optparse.OptionParser(usage="%prog <--xcode|--scan|--ssonly|--server|--set> [options] <[-i] INFILE> [[-o] OUTFILE]", version=__version__+" ("+__date__+")")
+    oparser = optparse.OptionParser(usage="%prog <--xcode|--scan|--ascan|--ssonly|--server|--set> [options] <[-i] INFILE> [[-o] OUTFILE]", version=__version__+" ("+__date__+")")
 
     # General options
     oparser.add_option('-v', '--verbose', action="count", dest="run.verbose", help="Increase logging verbosity (-v Verbose, -vv Debug, -vvv Debug2)")
@@ -59,7 +60,8 @@ def parse_cli():
     # Mode selection options
     opg_mode = optparse.OptionGroup(oparser, "Mode Selection", "Choose operations mode for XBake (required). These options are mutually-exclusive.")
     opg_mode.add_option('--xcode', action="store_const", dest="run.mode", const="xcode", default=False, help="Transcode")
-    opg_mode.add_option('--scan', action="store_const", dest="run.mode", const="scan", default=False, help="Scan for & catalogue media")
+    opg_mode.add_option('--scan', action="store_const", dest="run.mode", const="scan", default=False, help="Scan for video")
+    opg_mode.add_option('--ascan', action="store_const", dest="run.mode", const="ascan", default=False, help="Scan for audio/music")
     opg_mode.add_option('--ssonly', action="store_const", dest="run.mode", const="ssonly", default=False, help="Capture screenshot only")
     opg_mode.add_option('-d', '--server', action="store_const", dest="run.mode", const="srv", default=False, help="Run as a daemon (API server)")
     opg_mode.add_option('--set', action="store_const", dest="run.mode", const="set", default=False, help="Set overrides")
@@ -69,6 +71,7 @@ def parse_cli():
     opg_scan.add_option('-S', '--single', action="store_true", dest="run.single", default=False, help="Single-file Mode")
     opg_scan.add_option('-X', '--nosend', action="store_true", dest="scan.nosend", default=False, help="Disable sending data to remote server")
     opg_scan.add_option('--scraper', action="store", dest="scan.scraper", default=False, metavar="ID", help="Choose scraper to use (use 'help' to list available scrapers)")
+    opg_scan.add_option('--procs', action="store", dest="scan.procs", default=False, metavar="PROCS", help="Number of processes to spawn (default is number of CPU threads)")
     opg_scan.add_option('--pretty', action="store_true", dest="scan.pretty", default=False, help="Pretty-print JSON output")
     opg_scan.add_option('-Z', '--nochecksum', action="store_true", dest="scan.nochecksum", default=False, help="Disable checksum calculation during file scanning")
     opg_scan.add_option('--nosave', action="store_false", dest="scan.savechecksum", default=False, help="Do not save checksum results in file extended attributes")
@@ -89,10 +92,12 @@ def parse_cli():
     opg_xcode.add_option('--downmix', action="store_true", dest="xcode.downmix", default=False, help="Downmix audio from 5.1 to Stereo")
     opg_xcode.add_option('--flv', action="store_true", dest="xcode.flv", default=False, help="Output in FLV container")
     opg_xcode.add_option('--daignore', action="store_true", dest="xcode.daignore", default=False, help="Ignore errors when dumping attachments")
+    opg_xcode.add_option('-x', '--noupdate', action="store_true", dest="run.noupdate", default=False, help="Do not commit updates to database")
 
     # Framegrab options
     opg_vscap = optparse.OptionGroup(oparser, "Framegrab", "Options for screenshot capture")
     opg_vscap.add_option('--vscap', action="store", dest="run.vscap", default=False, metavar="OFFSET", help="Capture frame at specified OFFSET in seconds (integer)")
+    opg_vscap.add_option('--nothumbs', action="store_true", dest="vscap.nothumbs", default=False, help="Capture and store original image only; do not generate thumbnails or WebP versions")
 
     # Versioning options
     opg_version = optparse.OptionGroup(oparser, "ID & Version Info", "Options for file ID and encode versioning")
@@ -198,6 +203,8 @@ def _main():
         rcode = ssonly.run(config)
     elif config.run['mode'] == "scan":
         rcode = mscan.run(config)
+    elif config.run['mode'] == "ascan":
+        rcode = ascan.run(config)
     elif config.run['mode'] == "srv":
         daemon.start(config)
     elif config.run['mode'] == "set":

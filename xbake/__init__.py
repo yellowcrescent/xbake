@@ -10,7 +10,7 @@ Media cataloguing, renaming, sub baking and transcoding utility
 @author   Jacob Hipps <jacob@ycnrg.org>
 @repo     https://git.ycnrg.org/projects/YXB/repos/yc_xbake
 
-Copyright (c) 2013-2016 J. Hipps / Neo-Retro Group, Inc.
+Copyright (c) 2013-2017 J. Hipps / Neo-Retro Group, Inc.
 https://ycnrg.org/
 
 Refer to README.md for installation and usage instructions.
@@ -19,8 +19,8 @@ Refer to README.md for installation and usage instructions.
 
 from xbake.common.logthis import LL
 
-__version__ = "0.10.188"
-__date__ = "04 Dec 2016"
+__version__ = "0.10.190"
+__date__ = "23 Feb 2017"
 
 defaults = {
                 'run': {
@@ -32,7 +32,8 @@ defaults = {
                     'vscap': None,
                     'single': False,
                     'tsukimi': False,
-                    'ovr_clear': False
+                    'ovr_clear': False,
+                    'noupdate': False
                 },
                 'core': {
                     'loglevel': LL.INFO
@@ -45,7 +46,8 @@ defaults = {
                 'vscap': {
                     'basedir': ".",
                     'webp_m': 6,
-                    'webp_q': 90
+                    'webp_q': 90,
+                    'nothumbs': False
                 },
                 'mongo': {
                     'uri': "mongodb://localhost:27017/ycplay"

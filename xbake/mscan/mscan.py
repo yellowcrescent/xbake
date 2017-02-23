@@ -9,7 +9,7 @@ Media Scanner
 @author   Jacob Hipps <jacob@ycnrg.org>
 @repo     https://git.ycnrg.org/projects/YXB/repos/yc_xbake
 
-Copyright (c) 2013-2016 J. Hipps / Neo-Retro Group, Inc.
+Copyright (c) 2013-2017 J. Hipps / Neo-Retro Group, Inc.
 https://ycnrg.org/
 
 """
@@ -92,7 +92,7 @@ def run(xconfig):
     else:
         if config.run['tsukimi'] is True:
             tstatus('scanlist', scanlist=get_scanlist(config.run['infile'], config.scan['follow_symlinks']))
-        new_files, flist = scan_dir(config.run['infile'], config.scan['follow_symlinks'], config.scan['mforce'], config.scan['nochecksum'], config.scan['savechecksum'], config.scan['procs'])
+        new_files, flist = scan_dir(config.run['infile'], config.scan['follow_symlinks'], config.scan['mforce'], config.scan['nochecksum'], config.scan['savechecksum'], int(config.scan['procs']))
 
     # Scrape for series information
     if new_files > 0:

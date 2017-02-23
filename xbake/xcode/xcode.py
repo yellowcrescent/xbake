@@ -9,7 +9,7 @@ Transcoder
 @author   Jacob Hipps <jacob@ycnrg.org>
 @repo     https://git.ycnrg.org/projects/YXB/repos/yc_xbake
 
-Copyright (c) 2013-2016 J. Hipps / Neo-Retro Group, Inc.
+Copyright (c) 2013-2017 J. Hipps / Neo-Retro Group, Inc.
 https://ycnrg.org/
 
 """
@@ -18,6 +18,7 @@ import os
 import enzyme
 
 from xbake.common.logthis import *
+from xbake.mscan.util import *
 from xbake.xcode import ffmpeg
 from xbake.mscan import util
 from xbake.common import db
@@ -141,7 +142,7 @@ def run(xconfig):
 
     # Grab an interesting frame for the screenshot
     if config.run['vscap']:
-        vsdata = sscapture(config.run['infile'], config.run['vscap'])
+        vsdata = sscapture(config.run['infile'], config.run['vscap'], vinfo.id)
         if vdata:
             vdata['vscap'] = vsdata
 
@@ -152,11 +153,11 @@ def run(xconfig):
     logthis("*** Transcoding task completed successfully.", loglevel=LL.INFO)
     return 0
 
-def sscapture(infile, offset):
+def sscapture(xconfig, offset, src_id=None):
     """
     Screenshot capture
     """
-    global config
+    infile = xconfig.run['infile']
 
     # split up infile
     i_real = os.path.realpath(os.path.expanduser(infile))
@@ -166,33 +167,72 @@ def sscapture(infile, offset):
     # build filename & path stuffs
     ssout = i_base + '.png'
     ssoutwp = i_base + '.webp'
-    ssdir = os.path.realpath(os.path.expanduser(config.vscap['basedir']))  # pylint: disable=unused-variable
-    ssdir_full = config.vscap['basedir'] + '/full'
-    ssdir_480 = config.vscap['basedir'] + '/480'
-    ssdir_240 = config.vscap['basedir'] + '/240'
+    ssdir = os.path.realpath(os.path.expanduser(xconfig.vscap['basedir']))  # pylint: disable=unused-variable
+    ssdir_full = xconfig.vscap['basedir'] + '/full'
     ssout_full = os.path.realpath(ssdir_full + '/' + ssout)
-    ssout_fullwp = os.path.realpath(ssdir_full + '/' + ssoutwp)
-    ssout_480 = os.path.realpath(ssdir_480 + '/' + ssout)
-    ssout_480wp = os.path.realpath(ssdir_480 + '/' + ssoutwp)
-    ssout_240 = os.path.realpath(ssdir_240 + '/' + ssout)
-    ssout_240wp = os.path.realpath(ssdir_240 + '/' + ssoutwp)
+
+    if not xconfig.vscap['nothumbs']:
+        ssdir_480 = xconfig.vscap['basedir'] + '/480'
+        ssdir_240 = xconfig.vscap['basedir'] + '/240'
+        ssout_fullwp = os.path.realpath(ssdir_full + '/' + ssoutwp)
+        ssout_480 = os.path.realpath(ssdir_480 + '/' + ssout)
+        ssout_480wp = os.path.realpath(ssdir_480 + '/' + ssoutwp)
+        ssout_240 = os.path.realpath(ssdir_240 + '/' + ssout)
+        ssout_240wp = os.path.realpath(ssdir_240 + '/' + ssoutwp)
+        ssdir_list = [ssdir_full, ssdir_480, ssdir_240]
+    else:
+        ssout_fullwp = None
+        ssout_480 = None
+        ssout_480wp = None
+        ssout_240 = None
+        ssout_240wp = None
+        ssdir_list = [ssdir_full]
+
+    # ensure target dirs exist
+    for tpath in ssdir_list:
+        if mkdirp(tpath) is True:
+            logthis("Target path OK:", suffix=tpath, loglevel=LL.DEBUG)
+        else:
+            logthis("Failed to create target path:", suffix=tpath, loglevel=LL.ERROR)
+            return None
 
     # grab the frame
     logthis("Capturing frame at offset:", suffix=offset, loglevel=LL.INFO)
-    ffmpeg.vscap(i_real, offset, ssout_full)
+    if ffmpeg.vscap(i_real, offset, ssout_full, supout=(loglevel() < LL.DEBUG)) is True:
+        logthis("Grabbed frame and saved to", suffix=ssout_full, loglevel=LL.VERBOSE)
+    else:
+        logthis("ffmpeg run failed, aborting", loglevel=LL.ERROR)
+        return None
 
-    # scale to smaller versions; convert all versions to WebP
-    logthis("Generating intermediate sizes and WebP versions", loglevel=LL.VERBOSE)
-    ffmpeg.im_scale(ssout_full, ssout_480, 480)
-    ffmpeg.im_scale(ssout_full, ssout_240, 240)
-    ffmpeg.webp_convert(ssout_full, ssout_fullwp)
-    ffmpeg.webp_convert(ssout_480, ssout_480wp)
-    ffmpeg.webp_convert(ssout_240, ssout_240wp)
+    if not xconfig.vscap['nothumbs']:
+        # scale to smaller versions; convert all versions to WebP
+        logthis("Generating intermediate sizes and WebP versions", loglevel=LL.VERBOSE)
+        ffmpeg.im_scale(ssout_full, ssout_480, 480)
+        ffmpeg.im_scale(ssout_full, ssout_240, 240)
+        ffmpeg.webp_convert(ssout_full, ssout_fullwp)
+        ffmpeg.webp_convert(ssout_480, ssout_480wp)
+        ffmpeg.webp_convert(ssout_240, ssout_240wp)
+    else:
+        logthis("Skipping intermediate sizes and WebP versions", loglevel=LL.DEBUG)
+
 
     logthis("Screenshot generation complete.", ccode=C.GRN, loglevel=LL.INFO)
 
     # Set vscap vdata
-    vsdata = {'filename': ssout, 'offset': offset}
+    vsdata = {
+                'filename': ssout,
+                'basename': i_base,
+                'offset': offset,
+                'src_id': src_id,
+                'sizes': {
+                    '240': ssout_240,
+                    '240w': ssout_240wp,
+                    '480': ssout_480,
+                    '480w': ssout_480wp,
+                    'full': ssout_full,
+                    'fullw': ssout_fullwp
+                }
+             }
 
     return vsdata
 

@@ -7,7 +7,7 @@ It was originally written in PHP to bake subtitles (hence the name) and transcod
 
 ## License
 ```
-Copyright (c) 2013-2015 Jacob Hipps / Neo-Retro Group, Inc.
+Copyright (c) 2013-2017 Jacob Hipps / Neo-Retro Group, Inc.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -59,7 +59,7 @@ If you haven't done so already, be sure you have a copy of the Python dev packag
 XBake also requires various pieces of software to perform its magic. This includes rhash, ImageMagick, MkvToolNix, MediaInfo, and WebP.
 The command below also installs some dev libraries that may be required for compiling Python package dependencies.
 
-    sudo apt-get install rhash imagemagick mkvtoolnix mediainfo webp libffi-dev libxml2-dev libattr1-dev
+    sudo apt-get install imagemagick mkvtoolnix mediainfo webp python-lxml librhash0 libffi-dev libxml2-dev libattr1-dev libtag1-dev
 
 ### Installing XBake
 Once all of the system libraries have been installed, clone the git repository from Bitbucket, then run the
@@ -76,7 +76,7 @@ rather than 'install'. This will create a stub to execute your progam, and links
 
 You can now test to make sure everything has been installed properly by running:
 
-    yc_xbake
+    xbake
 
 If all went well, you should see the help and usage output. If a program or dependency is missing, you should
 receive an error message indicating what needs to be fixed. If ffmpeg is missing or not installed, you will

@@ -9,7 +9,7 @@ Scanner output module
 @author   Jacob Hipps <jacob@ycnrg.org>
 @repo     https://git.ycnrg.org/projects/YXB/repos/yc_xbake
 
-Copyright (c) 2013-2016 J. Hipps / Neo-Retro Group, Inc.
+Copyright (c) 2013-2017 J. Hipps / Neo-Retro Group, Inc.
 https://ycnrg.org/
 
 """
@@ -22,6 +22,7 @@ import requests
 from xbake import __version__, __date__
 from xbake.common.logthis import *
 from xbake.common import db
+from xbake.mscan.util import *
 
 
 def to_mongo(indata, moncon):
@@ -129,7 +130,7 @@ def to_mongo(indata, moncon):
     for tss in eplist:
         # Process each series
         tssid = tss.get('_id')
-        logthis("** Episode:", prefix=tssid, suffix="S:%s/E:%s \"%s\"" % (tss.get("SeasonNumber", ""), tss.get("EpisodeNumber", ""), tss.get("EpisodeName", "")), loglevel=LL.DEBUG)
+        logthis("** Episode:", prefix=tssid, suffix="S:%s/E:%s \"%s\"" % (tss.get("season", ""), tss.get("episode", ""), tss.get("title", "")), loglevel=LL.DEBUG)
         thisup = int(tss.get("lastupdated", 0))
         up2dater['episodes']['total'] += 1
 
@@ -166,6 +167,9 @@ def to_mongo(indata, moncon):
 
     ## Insert Source File data
     for fname, fdata in indata['files'].iteritems():  # pylint: disable=unused-variable
+        if fdata is False:
+            logthis("!! Skipping file", suffix=fname, loglevel=LL.VERBOSE)
+            continue
         thisf = {}
         md5 = fdata['checksum']['md5']
         up2dater['files']['total'] += 1
@@ -187,29 +191,31 @@ def to_mongo(indata, moncon):
         thisf['mediainfo'] = fdata['mediainfo']
         thisf['fparse'] = {
                             'series': fdata['fparse']['series'],
-                            'season': int(fdata['fparse']['season']),
-                            'episode': int(fdata['fparse']['episode']),
+                            'season': safeInt(fdata['fparse']['season']),
+                            'episode': safeInt(fdata['fparse']['episode']),
                             'special': fdata['fparse']['special']
                           }
         thisf['tdex_id'] = fdata['tdex_id']
 
         # Don't overwrite these values if entry already exists
-        if not exist_entry or (thisf.get('series_id', None) is None or thisf.get('episode_id', None) is None):
+        if (not exist_entry) or (thisf.get('series_id') is None or thisf.get('episode_id') is None):
             # Query Mongo for matching series and episode IDs
             xepi_info = None
             xser_info = monjer.findOne("series", {'norm_id': fdata['tdex_id']})
             if xser_info:
-                xepi_info = monjer.findOne("episodes", {'sid': xser_info['_id'], 'EpisodeNumber': str(fdata['fparse']['episode']), 'SeasonNumber': str(fdata['fparse']['season'])})
+                xepi_info = monjer.findOne("episodes", {'series_id': xser_info['_id'], 'episode': safeInt(fdata['fparse']['episode']), 'season': safeInt(fdata['fparse']['season'])})
 
             if xepi_info:
                 thisf['series_id'] = xser_info['_id']
                 thisf['episode_id'] = xepi_info['_id']
+                logthis("-- series_id =", suffix=thisf['series_id'], loglevel=LL.DEBUG)
+                logthis("-- episode_id =", suffix=thisf['episode_id'], loglevel=LL.DEBUG)
             else:
                 thisf['series_id'] = None
                 thisf['episode_id'] = None
 
         # Create location for this source
-        if not thisf.has_key('location'):
+        if 'location' not in thisf:
             thisf['location'] = {}
             up2dater['files']['new'] += 1
         else:
@@ -258,8 +264,8 @@ def to_file(indata, fname):
         fo.write(json.dumps(indata, indent=4, separators=(',', ': ')))
         fo.close()
         xstat = {'status': "ok"}
-    except:
-        logthis("Failed to write data to outfile:", suffix=fname, loglevel=LL.ERROR)
+    except Exception as e:
+        logexc(e, "Failed to write data to outfile [%s]" % (fname))
         xstat = {'status': "error", 'message': "Failed to write data to outfile"}
 
     return xstat
@@ -303,8 +309,8 @@ def find_matching_episode(sdex, fpinfo):
     episode_id = int(fpinfo.get('episode', 0))
     season_id = int(fpinfo.get('season', 0))
     for epdata in sdex.get('episodes', []):
-        if int(epdata['SeasonNumber']) == season_id:
-            if int(epdata['EpisodeNumber']) == episode_id:
+        if int(epdata['season']) == season_id:
+            if int(epdata['episode']) == episode_id:
                 return epdata['_id']
 
     return None

@@ -1,10 +1,11 @@
 #!/usr/bin/env python
 # coding=utf-8
+# pylint: disable=W,C
 
 from setuptools import setup, find_packages
 setup(
     name = "yc_xbake",
-    version = "0.10.180",
+    version = "0.10.190",
     author = "Jacob Hipps",
     author_email = "jacob@ycnrg.org",
     license = "MIT",
@@ -15,7 +16,9 @@ setup(
     packages = find_packages(),
     scripts = [],
 
-    install_requires = ['docutils','setproctitle','pymongo','redis','pymediainfo','enzyme','distance','requests','xmltodict','xattr','flask>=0.10.1','lxml','arrow>=0.7.0'],
+    install_requires = ['docutils', 'setproctitle', 'pymongo', 'redis', 'pymediainfo', 'enzyme',
+                        'distance', 'requests', 'xmltodict', 'xattr', 'flask>=0.10.1', 'lxml',
+                        'mutagen', 'arrow>=0.7.0'],
 
     package_data = {
         '': [ '*.md' ],

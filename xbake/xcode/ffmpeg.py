@@ -9,7 +9,7 @@ FFmpeg & friends interface
 @author   Jacob Hipps <jacob@ycnrg.org>
 @repo     https://git.ycnrg.org/projects/YXB/repos/yc_xbake
 
-Copyright (c) 2013-2016 J. Hipps / Neo-Retro Group, Inc.
+Copyright (c) 2013-2017 J. Hipps / Neo-Retro Group, Inc.
 https://ycnrg.org/
 
 """
@@ -161,12 +161,14 @@ def dumpSub(vfile, trackid, outfile):
 
     logthis("Extracted subtitle track successfully:", suffix=outfile, loglevel=LL.VERBOSE)
 
-def vscap(vfile, offset, outfile):
+def vscap(vfile, offset, outfile, supout=True):
     """
     Capture frame at specified offset
     """
+    se_output = subprocess.STDOUT if supout else None
+
     try:
-        subprocess.check_output([bpath.ffpath, '-y', '-ss', str(offset), '-i', vfile, '-t', '1', '-r', '1', outfile], stderr=subprocess.STDOUT)
+        subprocess.check_output([bpath.ffpath, '-y', '-ss', str(offset), '-i', vfile, '-t', '1', '-r', '1', outfile], stderr=se_output)
         return True
     except subprocess.CalledProcessError as e:
         logexc(e, "FFmpeg returned non-zero. Frame capture failed")

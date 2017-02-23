@@ -9,7 +9,7 @@ Logging & exception handling facilities
 @author   Jacob Hipps <jacob@ycnrg.org>
 @repo     https://git.ycnrg.org/projects/YXB/repos/yc_xbake
 
-Copyright (c) 2013-2016 J. Hipps / Neo-Retro Group, Inc.
+Copyright (c) 2013-2017 J. Hipps / Neo-Retro Group, Inc.
 https://ycnrg.org/
 
 """
@@ -191,7 +191,7 @@ def exceptionHandler(exception_type, exception, traceback):
     """exception handler callback"""
     # pylint: disable=unused-argument
     tstatus('exception', etype=exception_type.__name__, msg=exception)
-    print "%s: %s" % (exception_type.__name__, exception)
+    print("%s: %s" % (exception_type.__name__, exception))
 
 def print_r(ind):
     """pretty-print a dict as JSON"""

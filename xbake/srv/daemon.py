@@ -9,7 +9,7 @@ Daemon master process & REST API handler
 @author   Jacob Hipps <jacob@ycnrg.org>
 @repo     https://git.ycnrg.org/projects/YXB/repos/yc_xbake
 
-Copyright (c) 2013-2016 J. Hipps / Neo-Retro Group, Inc.
+Copyright (c) 2013-2017 J. Hipps / Neo-Retro Group, Inc.
 https://ycnrg.org/
 
 """
@@ -151,7 +151,7 @@ def route_root():
                 'version': __version__,
                 'date': __date__,
                 'author': "J. Hipps <jacob@ycnrg.org>",
-                'copyright': "Copyright (c) 2013-2016 J. Hipps/Neo-Retro Group, Inc.",
+                'copyright': "Copyright (c) 2013-2017 J. Hipps/Neo-Retro Group, Inc.",
                 'license': "MIT"
             }
     return dresponse(rinfo)

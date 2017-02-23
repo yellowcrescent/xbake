@@ -9,7 +9,7 @@ Scanner utility functions
 @author   Jacob Hipps <jacob@ycnrg.org>
 @repo     https://git.ycnrg.org/projects/YXB/repos/yc_xbake
 
-Copyright (c) 2013-2016 J. Hipps / Neo-Retro Group, Inc.
+Copyright (c) 2013-2017 J. Hipps / Neo-Retro Group, Inc.
 https://ycnrg.org/
 
 """
@@ -20,6 +20,7 @@ import time
 import pwd
 import grp
 import hashlib
+import errno
 
 from pymediainfo import MediaInfo
 
@@ -92,7 +93,7 @@ def rhash(infile, hlist):
     logthis("librhash runtime:", suffix=str(t_duration), loglevel=LL.DEBUG)
 
     hout = {}
-    for thash in hlist:
+    for thash in hxlist:
         hout[RHSLUT[thash].lower()] = rh.hex(thash)
     return hout
 
@@ -120,15 +121,42 @@ def dstat(infile):
 
 def getuser(xuid):
     """convert uid to username"""
-    return pwd.getpwuid(xuid).pw_name
+    try:
+        return pwd.getpwuid(xuid).pw_name
+    except:
+        logthis("UID lookup failed; uid =", suffix=xuid, loglevel=LL.WARNING)
+        return None
 
 def getgroup(xgid):
     """convert gid to group name"""
-    return grp.getgrgid(xgid).gr_name
+    try:
+        return grp.getgrgid(xgid).gr_name
+    except:
+        logthis("GID lookup failed; gid =", suffix=xgid, loglevel=LL.WARNING)
+        return None
 
 def getmkey(istat):
     """calculate mkey as an MD5 of inode number + mtime + size"""
     return hashlib.md5(str(istat['ino']) + str(istat['mtime']) + str(istat['size'])).hexdigest()
+
+def mkdirp(path, mode=0o0775):
+    """mkdir -p, yolo"""
+    try:
+        os.makedirs(path, mode)
+    except OSError as e:
+        if e.errno == errno.EEXIST and os.path.isdir(path):
+            pass
+        else:
+            logexc(e, "mkdirp(%s) failed" % (path))
+            return False
+    return True
+
+def safeInt(val):
+    """safe int conversion"""
+    try:
+        return int(val)
+    except (TypeError, ValueError):
+        return None
 
 def normalize(xname):
     """
@@ -171,6 +199,7 @@ def mkid_series(tdex_id, xdata):
 def mkid_episode(sid, xdata):
     """
     Create unique episode ID
+    @xdata is raw entry from TVDb [FIXME]
     """
     if xdata.get('id', None):
         isuf = xdata['id']
@@ -200,7 +229,7 @@ class MIP:
 MILUT = {
             'id': MIP.COPY,
             'unique_id': MIP.STRCOPY,
-            'format': MIP.COPY|MIP.LOWER,
+            'format': MIP.COPY,
             'format_profile': MIP.COPY,
             'codec_id': MIP.COPY,
             'duration': MIP.FLOAT|MIP.DIV1000|MIP.TSTAMP_FB,
@@ -226,12 +255,17 @@ MILUT = {
             'forced': MIP.BOOL
          }
 
-def mediainfo(fpath, xconfig):
+def mediainfo(fpath, xconfig, format_lower=True):
     """
     Use PyMediainfo to retrieve info about @fname, then parse and filter this
     into a more usable format, which is returned as a dict
     """
     global MILUT
+
+    if format_lower is True:
+        MILUT['format'] = MIP.COPY|MIP.LOWER
+    else:
+        MILUT['format'] = MIP.COPY
 
     logthis("Parsing mediainfo from file:", suffix=fpath, loglevel=LL.VERBOSE)
 
