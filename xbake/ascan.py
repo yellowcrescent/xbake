@@ -16,6 +16,8 @@ https://ycnrg.org/
 
 import os
 import re
+import codecs
+import shlex
 import socket
 import time
 import multiprocessing
@@ -23,7 +25,6 @@ import mimetypes
 from urlparse import urlparse
 
 import mutagen
-import taglib
 import arrow
 from setproctitle import setproctitle
 
@@ -278,8 +279,14 @@ def scanrunner(in_q, out_q):
                 time.sleep(0.1)
             os._exit(0)
         scandata = scanfile(**thisjob)
-        if scandata is not None:
+        if isinstance(scandata, dict):
+            # Single file, Single song
             out_q.put((thisjob['infile'], scandata))
+        elif isinstance(scandata, list):
+            # Single file, Many subsongs (eg. cue sheet or FLAC w/ embedded cue)
+            for subsong in scandata:
+                ssid = "{}#!{}".format(thisjob['infile'], subsong['subsong']['index'])
+                out_q.put((ssid, subsong))
 
 
 def scanfile(infile, ovrx={}, mforce=False):
@@ -323,26 +330,34 @@ def scanfile(infile, ovrx={}, mforce=False):
 
     # Get mediainfo & build codec string
     minfo = util.mediainfo(xvreal, config, format_lower=False)
-    if minfo['audio'][0]['format'] == "mpeg audio":
-        if minfo['audio'][0]['format'].endswith('3'):
-            acodec = "MP3"
-        elif minfo['audio'][0]['format'].endswith('2'):
-            acodec = "MP2"
+    try:
+        if minfo['audio'][0]['format'] == "mpeg audio":
+            if minfo['audio'][0]['format'].endswith('3'):
+                acodec = "MP3"
+            elif minfo['audio'][0]['format'].endswith('2'):
+                acodec = "MP2"
+            else:
+                acodec = "MPEG Audio"
+                if 'format_profile' in minfo['audio'][0]:
+                    acodec += " " + minfo['audio'][0]['format_profile']
         else:
-            acodec = "MPEG Audio"
+            acodec = ""
+            if minfo['general']['format'] != minfo['audio'][0]['format']:
+                acodec = minfo['general']['format'] + " "
+            acodec += minfo['audio'][0]['format']
             if 'format_profile' in minfo['audio'][0]:
                 acodec += " " + minfo['audio'][0]['format_profile']
-    else:
-        acodec = ""
-        if minfo['general']['format'] != minfo['audio'][0]['format']:
-            acodec = minfo['general']['format'] + " "
-        acodec += minfo['audio'][0]['format']
-        if 'format_profile' in minfo['audio'][0]:
-            acodec += " " + minfo['audio'][0]['format_profile']
+    except Exception as e:
+        logexc(e, "Failed to determine codec")
+        acodec = "Unknown"
 
-    if 'bit_depth' in minfo['audio'][0]:
-        bitdepth = minfo['audio'][0]['bit_depth']
-    else:
+    try:
+        if 'bit_depth' in minfo['audio'][0]:
+            bitdepth = minfo['audio'][0]['bit_depth']
+        else:
+            bitdepth = 16
+    except Exception as e:
+        logexc(e, "Failed to determine bit depth; assuming default 16-bit")
         bitdepth = 16
 
     # Open file with Mutagen
@@ -369,71 +384,150 @@ def scanfile(infile, ovrx={}, mforce=False):
         amime = "audio/x-" + xvext.lower()
     logthis("Detected MIME-Type:", suffix=amime, loglevel=LL.DEBUG)
 
-    tags = mf.tags
-    tdate = parse_album_date(tags)
-    if tdate is not None:
-        tyear = tdate.format("YYYY")
-        tstamp = tdate.timestamp
-    else:
-        tyear = None
-        tstamp = None
-
+    # Set default subsong info
     dasc['subsong'] = {
-                        'index': None,
-                        'start_time': None,
+                        'index': 1,
+                        'start_time': 0.0,
                         'duration': None,
                         'cue': None
                       }
-    dasc['tags'] = {
-                        'artist': get_best_tag(tags, ('ARTIST', 'TPE1', 'TOPE', 'Author')),
-                        'album': get_best_tag(tags, ('ALBUM', 'TALB', 'TOAL', 'WM/AlbumTitle')),
-                        'title': get_best_tag(tags, ('TITLE', 'TIT2', 'TIT3', 'Title')),
-                        'year': tyear,
-                        'timestamp': tstamp,
-                        'genre': get_best_tag(tags, ('GENRE', 'TCON', 'WM/Genre')),
-                        'tracknum': parse_tracknum(tags, forceInt=True),
-                        'trackstr': parse_tracknum(tags, forceInt=False),
-                        'disc': get_best_tag(tags, ('DISCNUMBER', 'DISC', 'TPOS')),
-                        'album_artist': get_best_tag(tags, ('ALBUMARTIST', 'TXXX:ALBUM ARTIST', 'TXXX:ALBUM_ARTIST', 'WM/AlbumArtist'))
-                   }
-    dasc['alltags'] = get_all_tags_once(tags)
-    dasc['format'] = {
-                        'format': acodec,
-                        'mime': amime,
-                        'channels': mf.info.channels,
-                        'sampling_rate': mf.info.sample_rate,
-                        'encoding_settings': minfo['audio'][0].get('encoding_settings'),
-                        'writing_library': minfo['audio'][0].get('writing_library'),
-                        'bitrate': mf.info.bitrate,
-                        'bit_depth': bitdepth,
-                        'length': mf.info.length
-                     }
+
+    # Check for tag data
+    tags = mf.tags
+    if tags:
+        tdate = parse_album_date(tags)
+        if tdate is not None:
+            tyear = tdate.format("YYYY")
+            tstamp = tdate.timestamp
+        else:
+            tyear = None
+            tstamp = None
+
+        dasc['tags'] = {
+                            'artist': get_best_tag(tags, ('ARTIST', 'TPE1', 'TOPE', 'Author')),
+                            'album': get_best_tag(tags, ('ALBUM', 'TALB', 'TOAL', 'WM/AlbumTitle')),
+                            'title': get_best_tag(tags, ('TITLE', 'TIT2', 'TIT3', 'Title')),
+                            'year': tyear,
+                            'timestamp': tstamp,
+                            'genre': get_best_tag(tags, ('GENRE', 'TCON', 'WM/Genre')),
+                            'tracknum': parse_tracknum(tags, forceInt=True),
+                            'trackstr': parse_tracknum(tags, forceInt=False),
+                            'disc': get_best_tag(tags, ('DISCNUMBER', 'DISC', 'TPOS')),
+                            'album_artist': get_best_tag(tags, ('ALBUMARTIST', 'TXXX:ALBUM ARTIST', 'TXXX:ALBUM_ARTIST', 'WM/AlbumArtist'))
+                       }
+        dasc['alltags'] = get_all_tags_once(tags)
+        dasc['format'] = {
+                            'format': acodec,
+                            'mime': amime,
+                            'channels': get_info_safe(mf.info, 'channels', 2),
+                            'sampling_rate': get_info_safe(mf.info, 'sample_rate', 44100),
+                            'encoding_settings': minfo['audio'][0].get('encoding_settings'),
+                            'writing_library': minfo['audio'][0].get('writing_library'),
+                            'bitrate': get_info_safe(mf.info, 'bitrate', 1411000),
+                            'bit_depth': bitdepth,
+                            'length': get_info_safe(mf.info, 'length')
+                         }
 
 
-    if dasc['tags']['album_artist'] is None:
-        dasc['tags']['album_artist'] = dasc['tags']['artist']
-
-    logthis(u"Title: {title} / Track: {tracknum} ({trackstr}) / Artist: {artist} / Album: {album} / AlbumArtist: {album_artist} / Year: {year}".format(**dasc['tags']), loglevel=LL.DEBUG)
-
+        if dasc['tags']['album_artist'] is None:
+            dasc['tags']['album_artist'] = dasc['tags']['artist']
+    else:
+        dasc['tags'] = {}
+        dasc['alltags'] = {}
+        dasc['format'] = {}
+        logthis("** NO DATA **", loglevel=LL.WARNING)
 
     # Record last time this entry was updated (UTC)
     last_up = arrow.utcnow().timestamp
     logthis("last_updated =", suffix=last_up, loglevel=LL.DEBUG)
     dasc['last_updated'] = last_up
 
-    return dasc
+    # Check for matching cue file...
+    subsongs = []
+    cuepath = dasc['dpath']['full'] + '/' + dasc['fpath']['base'] + '.cue'
+    if os.path.exists(cuepath):
+        cue = parse_cue_file(cuepath)
+        if cue:
+            # Set subsong CUE sheet source file
+            dasc['subsong']['cue'] = dasc['fpath']['base'] + '.cue'
+            dasc['subsong']['cue_realpath'] = cuepath
+
+            logthis("Using CUE sheet for subsong indexing", suffix=dasc['fpath']['base'] + '.cue', loglevel=LL.VERBOSE)
+
+            for ssindex, ssdata in cue['tracks'].items():
+                try:
+                    if cue['tracks'].get(ssindex + 1):
+                        ssduration = cue['tracks'][ssindex + 1]['index'][1][0] - cue['tracks'][ssindex]['index'][1][0]
+                    else:
+                        ssduration = dasc['format']['length'] - cue['tracks'][ssindex]['index'][1][0]
+                except Exception as e:
+                    logexc(e, "Failed to calculate subsong duration")
+                    ssduration = 0.0
+                tsubsong = clone_master_track(dasc, ssdata, ssindex, ssduration)
+                logthis(u"[SUBSONG] Title: {title} / Track: {tracknum} ({trackstr}) / Artist: {artist} / Album: {album} / AlbumArtist: {album_artist} / Year: {year}".format(**tsubsong['tags']), loglevel=LL.DEBUG)
+                subsongs.append(tsubsong)
+
+    if len(subsongs) == 0:
+        logthis(u"Title: {title} / Track: {tracknum} ({trackstr}) / Artist: {artist} / Album: {album} / AlbumArtist: {album_artist} / Year: {year}".format(**dasc['tags']), loglevel=LL.DEBUG)
+        return dasc
+    else:
+        return subsongs
+
+def clone_master_track(obj, stdata, stindex, stduration):
+    """
+    ghetto-clone ('deep copy') an object using JSON
+    populate subtrack info from CUE sheet
+    """
+    newsong = json.loads(json.dumps(obj))
+    newsong['subsong'] = {'index': stindex, 'start_time': stdata['index'][1][0], 'duration': stduration}
+    newsong['tags']['artist'] = stdata.get('PERFORMER', newsong['tags'].get('artist'))
+    newsong['tags']['title'] = stdata.get('TITLE', newsong['tags'].get('title'))
+    newsong['tags']['tracknum'] = stindex
+    newsong['tags']['trackstr'] = stindex
+    return newsong
+
+def get_info_safe(obj, attr, default=None):
+    """safely retrieve @attr from @obj"""
+    try:
+        oval = obj.__getattribute__(attr)
+    except:
+        logthis("Attribute does not exist, using default", prefix=attr, suffix=default, loglevel=LL.WARNING)
+        oval = default
+    return oval
 
 def get_true_value(inval):
     """return the true value from any object that might be in the way"""
-    if isinstance(inval, unicode) or isinstance(inval, str) or isinstance(inval, int):
+    if isinstance(inval, unicode) or isinstance(inval, int) or isinstance(inval, float):
         realval = inval
+    elif isinstance(inval, str) or isinstance(inval, bytes):
+        realval = inval.decode('utf8', errors='ignore')
     elif isinstance(inval, mutagen.id3._specs.ID3TimeStamp):
-        realval = unicode(inval)
+        realval = u'%04d' % (inval.year)
+        if inval.month:
+            realval += u'-%02d' % (inval.month)
+            if inval.day:
+                realval += u'-%02d' % (inval.day)
+    elif isinstance(inval, mutagen.id3.APIC):
+        realval = None
+        logthis("Data object handling not implemented. Ignoring APIC object.", loglevel=LL.WARNING)
+        #realval = {
+        #            'mime': inval.mime,
+        #            'desc': inval.desc,
+        #            'data': inval.data,
+        #            'type': inval.type
+        #          }
     else:
         try:
-            realval = inval.value
-        except:
-            logthis("Error determining true value for <%s>" % (type(inval)), suffix=inval, loglevel=LL.WARNING)
+            if 'text' in inval.__dict__.keys():
+                realval = unicode(inval.text, errors='ignore')
+            elif 'value' in inval.__dict__.keys():
+                realval = unicode(inval.value, errors='ignore')
+            else:
+                logthis("Not sure what to do with this one... <%s> [%s]" % (type(inval), ','.join(inval.__dict__.keys())),
+                        suffix=inval, loglevel=LL.WARNING)
+                realval = None
+        except Exception as e:
+            logthis("Error determining true value for <%s>:" % (type(inval)), suffix=str(e), loglevel=LL.WARNING)
             realval = None
     return realval
 
@@ -442,9 +536,22 @@ def get_all_tags_once(tagdata):
     tout = {}
     for ttag, tval in dict(tagdata).items():
         try:
-            tout[ttag] = get_true_value(tval[0])
+            dtag = ttag.decode('utf8')
         except Exception as e:
-            logexc(e, "Failed to convert %s tag for serialization" % (ttag))
+            logthis("Encountered bad tag; ignoring:", suffix=str(e), loglevel=LL.WARNING)
+            continue
+
+        try:
+            if hasattr(tval, '__iter__'):
+                if len(list(tval)) > 0:
+                    tout[dtag] = get_true_value(tval[0])
+                else:
+                    logthis("Encountered null tag data for", suffix=dtag, loglevel=LL.VERBOSE)
+                    tout = None
+            else:
+                tout[dtag] = get_true_value(tval)
+        except Exception as e:
+            logexc(e, "Failed to convert %s tag for serialization [type=%s]" % (dtag, type(tval)))
     return tout
 
 def get_single_tag(tagdata, tagname):
@@ -507,15 +614,15 @@ def parse_album_date(tagdata):
         if dt in tagdata:
             try:
                 tstr = get_true_value(tagdata[dt][0])
-                ad = arrow.get(tstr, ["YYYY-MM-DD", "YYYY"])
+                ad = arrow.get(tstr, ["YYYY-MM-DD", "YYYY-MM", "YYYY"])
                 break
-            except:
-                logthis("Failed to parse tag:", prefix=dt, suffix=tstr, loglevel=LL.WARNING)
+            except Exception as e:
+                logthis("Failed to parse tag:", prefix=dt, suffix=str(e), loglevel=LL.WARNING)
     return ad
 
 def parse_tracknum(tagdata, forceInt=False):
     """parse track number from tag data and output a normalized value"""
-    traw = get_best_tag(tagdata, ('TRACKNUMBER', 'TRCK', 'WM/TrackNumber'))
+    traw = get_best_tag(tagdata, ('TRACKNUMBER', 'TRCK', 'WM/TrackNumber', 'Track'))
     ttxt = None
     tnum = None
     try:
@@ -527,7 +634,61 @@ def parse_tracknum(tagdata, forceInt=False):
                 tnum = ttxt
     return tnum
 
-
 def parse_cue_file(rpath):
     """parse CUE sheet"""
-    pass
+    try:
+        with codecs.open(rpath, 'r', 'utf8', errors='ignore') as f:
+            clines = f.readlines()
+    except Exception as e:
+        logexc(e, "Failed to read CUE file %s" % (rpath))
+        return None
+
+    cuedata = {'tracks': {}}
+    tcontext = cuedata
+    for linenum, tline in enumerate(clines):
+        tline = tline.strip()
+        ttok = tuple(unicode(t, 'utf8', errors='ignore') for t in shlex.split(tline))
+        if len(ttok) < 2:
+            continue
+
+        try:
+            tcmd = ttok[0].strip().upper()
+            targs = ttok[1:]
+            if tcmd == "TRACK":
+                trknum = int(targs[0])
+                cuedata['tracks'][trknum] = {'type': targs[1].upper(), 'index': {}}
+                tcontext = cuedata['tracks'][trknum]
+            elif tcmd == "FILE":
+                tpath = targs[0]
+                ttype = targs[1].upper()
+                tcontext['FILE'] = {'path': tpath, 'type': ttype}
+            elif tcmd == "INDEX":
+                idex = int(targs[0])
+                istamp = targs[1]
+                fstamp = parse_cue_tstamp(istamp)
+                tcontext['index'][idex] = (fstamp, istamp)
+            elif tcmd == "REM":
+                trem = targs[1].upper()
+                tval = targs[2]
+                tcontext['REM:'+trem] = tval
+            else:
+                if len(targs) == 1:
+                    tcontext[tcmd.upper()] = targs[0]
+                else:
+                    tcontext[tcmd.upper()] = targs
+        except Exception as e:
+            logexc(e, "Failed to parse line %d in CUE sheet %s" % (linenum + 1, rpath))
+            continue
+    return cuedata
+
+def parse_cue_tstamp(tstr):
+    """
+    Parse @tstr timestamp from cuesheet using format MM:SS:FF
+    MM = Minutes, SS = Seconds, FF = Frames (0~74)
+    """
+    try:
+        mm, ss, ff = tstr.split(':', 2)
+        return (float(mm) * 60.0) + float(ss) + (float(ff) / 75.0)
+    except Exception as e:
+        logexc(e, "Failed to parse CUE timestamp '%s'" % (tstr))
+        return None

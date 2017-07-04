@@ -117,7 +117,7 @@ g_loglevel = LL.INFO
 
 _config = None
 
-def logthis(logline, loglevel=LL.DEBUG, prefix=None, suffix=None, ccode=None):
+def logthis(logline, loglevel=LL.DEBUG, prefix=None, suffix=None, ccode=None, stack_offset=0):
     """
     Global logging function; handles log line composition and prints messages to the console
     and log file
@@ -136,8 +136,8 @@ def logthis(logline, loglevel=LL.DEBUG, prefix=None, suffix=None, ccode=None):
     if suffix: zline += " " + C.CYN + unicode(suffix) + C.OFF
 
     # get traceback info
-    lframe = inspect.stack()[1][0]
-    lfunc = inspect.stack()[1][3]
+    lframe = inspect.stack()[1 + stack_offset][0]
+    lfunc = inspect.stack()[1 + stack_offset][3]
     mod = inspect.getmodule(lframe)
     lline = inspect.getlineno(lframe)
     lfile = inspect.getsourcefile(lframe)
@@ -172,7 +172,7 @@ def logexc(e, msg=None, prefix=None):
     else:
         msg = "Exception logged"
     suffix = C.WHT + u"[" + C.YEL + str(e.__class__.__name__) + C.WHT + u"] " + C.YEL + str(e)
-    logthis(msg, LL.ERROR, prefix, suffix)
+    logthis(msg, LL.ERROR, prefix, suffix, stack_offset=1)
     tstatus('exception', msg=msg, eclass=str(e.__class__.__name__), prefix=prefix)
 
 def loglevel(newlvl=None):

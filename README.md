@@ -62,10 +62,10 @@ The command below also installs some dev libraries that may be required for comp
     sudo apt-get install imagemagick mkvtoolnix mediainfo webp python-lxml librhash0 libffi-dev libxml2-dev libattr1-dev libtag1-dev
 
 ### Installing XBake
-Once all of the system libraries have been installed, clone the git repository from Bitbucket, then run the
+Once all of the system libraries have been installed, clone the git repository from Bitbucket (or Github), then run the
 setuptools installer. This should also install all of the Python dependencies.
 
-    git clone https://bitbucket.org/yellowcrescent/yc_xbake
+    git clone https://git.ycnrg.org/scm/yxb/yc_xbake.git
     cd yc_xbake
     sudo python setup.py install
 

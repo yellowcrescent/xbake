@@ -19,8 +19,8 @@ Refer to README.md for installation and usage instructions.
 
 from xbake.common.logthis import LL
 
-__version__ = "0.10.190"
-__date__ = "23 Feb 2017"
+__version__ = "0.10.191"
+__date__ = "03 Jul 2017"
 
 defaults = {
                 'run': {
